@@ -1,0 +1,22 @@
+{
+  "name": "ifolo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "屏幕边缘笔记 · 跨 Mac / Windows",
+  "license": "MIT",
+  "scripts": {
+    "dev": "pnpm --filter @ifolo/editor dev",
+    "build": "pnpm --filter @ifolo/editor build",
+    "build:macos": "pnpm build && cd apps/macos && ./build.sh",
+    "run:macos": "pnpm build:macos && open apps/macos/build/iFolo.app"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.29.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

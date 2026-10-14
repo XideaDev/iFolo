@@ -1,0 +1,59 @@
+#!/bin/sh
+# ============================================================================
+# iFolo macOS build script
+#
+# No Xcode project, no SwiftPM -- one script produces a runnable .app
+#
+# Usage:
+#   ./build.sh             build
+#   ./build.sh --run       build and launch
+# ============================================================================
+set -eu
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$ROOT/../.." && pwd)"
+APP="$ROOT/build/iFolo.app"
+
+SWIFTC="$(command -v swiftc || echo /usr/bin/swiftc)"
+ARCH="$(uname -m)"
+# LSMinimumSystemVersion in Info.plist must match -target; change both together
+TARGET_OS="macos14.0"
+
+echo "[1/5] compiling Swift ($ARCH $TARGET_OS)"
+rm -rf "$APP"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+
+# -parse-as-library: required by @main; entry file must not be named main.swift
+#                    (it is App.swift)
+# -disable-sandbox: SwiftUI macro plugin gets sandbox-exec'd and fails; we use
+#                   plain AppKit today but keep it in case SwiftUI arrives later
+"$SWIFTC" -O -swift-version 5 -parse-as-library -disable-sandbox \
+  -target "$ARCH-apple-$TARGET_OS" \
+  -framework AppKit -framework WebKit -framework Carbon \
+  "$ROOT"/Sources/*.swift -o "$APP/Contents/MacOS/iFolo"
+
+echo "[2/5] writing Info.plist"
+cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+printf 'APPL????' > "$APP/Contents/PkgInfo"
+
+echo "[3/5] embedding editor bundle"
+EDITOR_DIST="$REPO/packages/editor/dist"
+if [ ! -f "$EDITOR_DIST/index.html" ]; then
+  echo "editor bundle missing -- run pnpm build first" >&2
+  exit 1
+fi
+mkdir -p "$APP/Contents/Resources/editor"
+# 注意 /. —— 否则 cp 会把 dist 目录本身塞进去，得到 editor/dist/index.html
+cp -R "$EDITOR_DIST/." "$APP/Contents/Resources/editor/"
+
+echo "[4/5] signing (ad-hoc)"
+codesign --force --sign - "$APP" 2>&1 | head -3 || true
+
+echo "[5/5] done"
+SIZE=$(du -sh "$APP" | cut -f1)
+echo "$APP ($SIZE)"
+
+if [ "${1:-}" = "--run" ]; then
+  echo "launching..."
+  open "$APP"
+fi

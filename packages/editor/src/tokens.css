@@ -1,0 +1,215 @@
+/* ============================================================================
+   iFolo 设计令牌 —— 唯一真相源
+   ----------------------------------------------------------------------------
+   色彩来自 logo 自身的三原色几何构成。不引入外部流行色，不用渐变，不用发光。
+
+   最容易出错的地方：品牌标准色 #5CA3FF 白底对比度只有 2.58，
+   所以它只能做填充，不能承载文字。界面里「干活的蓝」是 blue-700 #0965DC。
+   ========================================================================= */
+
+:root {
+  /* ---------- 品牌色源（与 logo 官方色值一致） ---------- */
+  --ifolo-blue:   #5CA3FF;   /* 主色 Primary   214° 100% 68% */
+  --ifolo-green:  #69CF3D;   /* 辅助色 Secondary 102° 60% 53% */
+  --ifolo-orange: #FFA51F;   /* 强调色 Accent    36° 100% 56% */
+  --ifolo-gray:   #E8E8E8;   /* 标识灰：仅用于 logo 内部，不进入界面色板 */
+
+  /* ---------- 主色阶 Blue ---------- */
+  --blue-50:  #F0F6FF;
+  --blue-100: #DBEBFF;
+  --blue-200: #B8D7FF;
+  --blue-300: #8FBFFF;
+  --blue-400: #70AEFF;
+  --blue-500: #5CA3FF;   /* 品牌标准色 · 仅填充 */
+  --blue-600: #2380FB;
+  --blue-700: #0965DC;   /* 可读蓝 · 白底 5.38:1 AA */
+  --blue-800: #0D4DA0;
+  --blue-900: #0F376B;
+
+  /* ---------- 辅助色阶 Green ---------- */
+  --green-50:  #F3FAEF;
+  --green-100: #E3F5DB;
+  --green-200: #C7EAB8;
+  --green-300: #A4E08A;
+  --green-400: #84D760;
+  --green-500: #69CF3D;
+  --green-600: #53B927;
+  --green-700: #41961D;
+  --green-800: #337218;  /* 绿文字 · 白底 5.90:1 AA */
+  --green-900: #275214;
+
+  /* ---------- 强调色阶 Orange ---------- */
+  --orange-50:  #FFF7EB;
+  --orange-100: #FFEFD6;
+  --orange-200: #FFE0B2;
+  --orange-300: #FFCE85;
+  --orange-400: #FFBA52;
+  --orange-500: #FFA51F;
+  --orange-600: #ED8F02;
+  --orange-700: #BD7305;
+  --orange-800: #905A09;  /* 橙文字 · 白底 5.75:1 AA */
+  --orange-900: #68440D;
+
+  /* ---------- 危险色阶 Red（唯一不在 logo 中的色相） ---------- */
+  --red-50:  #FFEBEB;
+  --red-100: #FEDCDD;
+  --red-200: #FCBABD;
+  --red-300: #F89194;
+  --red-400: #EF6166;
+  --red-500: #E43A3F;
+  --red-600: #D52026;
+  --red-700: #A91E22;   /* 白底 7.25:1 AAA */
+  --red-800: #831B1E;
+  --red-900: #62181B;
+
+  /* ---------- 中性色阶 Ink（214° 低饱和，与主色同色相） ---------- */
+  --ink-0:   #FFFFFF;
+  --ink-25:  #FAFBFC;
+  --ink-50:  #F5F7FA;
+  --ink-100: #EBEFF4;
+  --ink-200: #DAE0E7;
+  --ink-300: #BEC6D0;
+  --ink-400: #959FAC;
+  --ink-500: #707B89;
+  --ink-600: #57606B;
+  --ink-700: #40464F;
+  --ink-800: #292D33;
+  --ink-900: #191C1F;
+
+  /* ---------- 语义别名 ---------- */
+  --text-primary:   var(--ink-900);   /* 17.11:1 AAA */
+  --text-secondary: var(--ink-600);   /*  6.38:1 AA  */
+  --text-tertiary:  var(--ink-500);   /*  4.30:1 仅限非关键信息 */
+  --text-disabled:  var(--ink-300);
+
+  --border-subtle: var(--ink-100);
+  --border:        var(--ink-200);
+  --border-strong: var(--ink-300);
+
+  --accent:        var(--blue-700);
+  --accent-fill:   var(--blue-500);
+  --accent-subtle: var(--blue-50);
+  --accent-border: var(--blue-200);
+
+  --success:      var(--green-800);
+  --success-fill: var(--green-500);
+  --success-soft: var(--green-50);
+
+  --warn:      var(--orange-800);
+  --warn-fill: var(--orange-500);
+  --warn-soft: var(--orange-50);
+
+  --danger:      var(--red-700);
+  --danger-fill: var(--red-500);
+  --danger-soft: var(--red-50);
+
+  /* ---------- 表面（只允许 3 层） ---------- */
+  --canvas:         var(--ink-50);
+  --surface:        #FFFFFF;
+  --surface-raised: #FFFFFF;   /* 靠阴影抬升，不靠换色 */
+  --surface-sunken: var(--ink-100);
+
+  /* ---------- 面板 ---------- */
+  --panel-width: 432px;
+  --panel-radius: 13px;
+  --panel-inset: 12px;
+
+  /* 面板背景不透明度：与模糊材质解耦，两者独立可调 */
+  --panel-opacity: 1;
+  --panel-bg: rgba(255, 255, 255, var(--panel-opacity));
+
+  /* ---------- 排版 ---------- */
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+             "Hiragino Sans GB", system-ui, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  --font-serif: ui-serif, Georgia, "Times New Roman", serif;
+
+  --t-h1: 25px;   --t-h1-w: 700; --t-h1-lh: 1.22; --t-h1-tr: -0.022em;
+  --t-h2: 19px;   --t-h2-w: 660; --t-h2-lh: 1.30; --t-h2-tr: -0.015em;
+  --t-h3: 16px;   --t-h3-w: 650; --t-h3-lh: 1.35; --t-h3-tr: -0.005em;
+  --t-body: 15.5px; --t-body-w: 400; --t-body-lh: 1.5;
+  --t-code: 13px;   --t-code-lh: 1.55;
+  --t-chrome: 13px; --t-chrome-w: 500; --t-chrome-lh: 1.3;
+  --t-control: 12.5px; --t-control-w: 600;
+  --t-caption: 11px; --t-caption-w: 600; --t-caption-tr: 0.04em;
+
+  --paragraph-spacing: 10px;
+
+  /* ---------- 间距（8 点栅格 + 2/4/6 半档） ---------- */
+  --sp-1: 2px;  --sp-2: 4px;  --sp-3: 6px;  --sp-4: 8px;
+  --sp-5: 12px; --sp-6: 16px; --sp-7: 20px; --sp-8: 24px; --sp-9: 32px;
+
+  /* ---------- 圆角 ---------- */
+  --r-xs: 4px; --r-sm: 6px; --r-md: 7px; --r-lg: 8px;
+  --r-xl: 10px; --r-2xl: 11px; --r-panel: 13px;
+
+  /* ---------- 阴影 ---------- */
+  --shadow-popover: 0 10px 34px rgba(20, 22, 40, .18), 0 1px 3px rgba(20, 22, 40, .10);
+  --shadow-raised:  0 24px 46px -28px rgba(16, 24, 40, .26), 0 1px 2px rgba(16, 24, 40, .04);
+  --shadow-panel:   -18px 0 60px rgba(20, 22, 40, .16);
+
+  /* ---------- 动效 ---------- */
+  --ease-slide: cubic-bezier(.32, .72, 0, 1);
+  --ease-out:   cubic-bezier(.2, .8, .3, 1);
+  --dur-slide:  320ms;
+  --dur-window: 260ms;
+  --dur-popover: 140ms;
+  --dur-hover:  120ms;
+
+  /* ---------- 代码语法高亮 ---------- */
+  --syn-kw:  #9333A8;
+  --syn-fn:  #2A6AE0;
+  --syn-str: #1C8A4D;
+  --syn-num: #B5530A;
+  --syn-com: #9A9AA1;
+
+  /* ---------- 尺寸 ---------- */
+  --toolbar-h: 34px;
+  --topbar-h: 36px;
+}
+
+/* ============================================================================
+   深色模式
+   深色不是把颜色反过来 —— 三个品牌色在深底上的对比度反而更好
+   （蓝 7.14 / 绿 9.31 / 橙 9.35），所以直接用 500 标准色。
+   ========================================================================= */
+[data-theme="dark"] {
+  --text-primary:   #E9EDF3;
+  --text-secondary: #A8B2C0;
+  --text-tertiary:  #7E8899;
+  --text-disabled:  #4A5361;
+
+  --border-subtle: #232A38;
+  --border:        #2A2F37;
+  --border-strong: #3A4252;
+
+  --accent:        var(--blue-500);
+  --accent-subtle: #1E3550;
+  --accent-border: #2C4A6E;
+
+  --success:      #A4E08A;
+  --success-soft: #22401A;
+
+  --warn:      #FFCE85;
+  --warn-soft: #4A3618;
+
+  --danger:      #F89194;
+  --danger-soft: #4A2226;
+
+  --canvas:         #15181D;
+  --surface:        #1D2127;
+  --surface-raised: #242931;
+  --surface-sunken: #13161A;
+
+  --panel-bg: rgba(29, 33, 39, var(--panel-opacity));
+
+  --syn-kw:  #C586E0;
+  --syn-fn:  #8FBFFF;
+  --syn-str: #A4E08A;
+  --syn-num: #FFCE85;
+  --syn-com: #6E7684;
+
+  --shadow-popover: 0 12px 38px rgba(0, 0, 0, .55), 0 1px 3px rgba(0, 0, 0, .4);
+  --shadow-raised:  0 24px 46px -28px rgba(0, 0, 0, .7);
+  --shadow-panel:   -18px 0 60px rgba(0, 0, 0, .5);
+}

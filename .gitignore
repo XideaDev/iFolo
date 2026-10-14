@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# 构建产物
+build/
+dist/
+*.app
+apps/macos/build/
+
+# Node
+node_modules/
+.pnpm-store/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# 编辑器构建产物（由 packages/editor 生成，随构建流程产出）
+packages/editor/dist/
+
+# Xcode / Swift
+*.xcuserdatad/
+*.xcworkspace/xcuserdata/
+.swiftpm/
+.build/
+
+# 本地数据（iFolo 运行时的笔记库，绝不入库）
+local-data/
+*.ifolo-backup
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# pnpm 本地 store（避免写入用户全局 store）
+.pnpm-store/
+packages/editor/dist-debug/
+
+# 诊断探针（排错用的临时页面）
+**/__diag.html
