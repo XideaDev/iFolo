@@ -55,6 +55,26 @@ docs/               架构说明、设计令牌、产品需求
 
 ## 开发
 
+### 当前状态（v0.1.0，已验证）
+
+| 能力 | 状态 |
+|---|---|
+| 面板呼出 / 收起 | ✅ ⌥⌘N 已注册并验证 |
+| 屏幕边缘热区 | ✅ 已启动（右侧 3pt，停留 120ms） |
+| 悬浮不夺焦 | ✅ `.nonactivatingPanel`，`isKeyWindow=true` |
+| Liquid Glass 材质 | ✅ macOS 26+ `NSGlassEffectView` |
+| 编辑器渲染 | ✅ ProseMirror 已挂载（`hasPM=1`） |
+| Markdown 持久化 | ✅ 原子写入 `~/Library/Application Support/iFolo/notes/` |
+| 富文本工具栏 / 斜杠命令 / 段落指示器 | ✅ 已实现 |
+| 6 种任务状态 | ✅ 已实现，含 Markdown 双向序列化 |
+| 面板不透明度 | ✅ 可在状态栏菜单调节 |
+| **语义检索** | ⬜ 未开始 |
+| **跨平台（Windows）** | ⬜ 未开始 |
+| **iCloud / 自建同步** | ⬜ 未开始 |
+
+排错入口：`~/Library/Logs/iFolo.log`。Web 侧的启动错误会通过
+`WKNavigationDelegate` 探针写进这个日志 —— file:// 下没法开 DevTools。
+
 ### 编辑器（浏览器里调试）
 
 ```sh
