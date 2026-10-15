@@ -41,3 +41,6 @@ packages/editor/dist-debug/
 
 # 诊断探针（排错用的临时页面）
 **/__diag.html
+
+# Agent 工作区（交接状态、会话记录，不入库）
+.workbuddy-ai/

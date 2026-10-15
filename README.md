@@ -50,7 +50,11 @@ iFolo 想做的是三件它们结构性做不到的事：
 ```
 packages/editor/    ProseMirror 编辑器（TypeScript，可独立在浏览器里跑）
 apps/macos/         macOS 原生外壳（swiftc 构建，无 Xcode 工程）
-docs/               架构说明、设计令牌、产品需求
+docs/
+  ├ architecture.md       架构说明与已知坑
+  ├ design-tokens.md      iFolo 色彩体系（来自 logo 的三原色几何）
+  ├ product-analysis.html 竞品实测 + 完整 PRD（FR-01 ~ FR-29）
+  └ handoff.md            交接报告：验证方式、待办项、环境前提
 ```
 
 ## 开发
