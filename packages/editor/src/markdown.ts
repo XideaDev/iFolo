@@ -201,7 +201,7 @@ const HTML_MARKS: Record<string, { mark: string; open: boolean; attrs?: Record<s
   '</del>': { mark: 'strikethrough', open: false },
 }
 
-const COLOR_OPEN = /^<span\s+style\s*=\s*["']color\s*:\s*([^"']+)["']\s*>$/i
+const COLOR_OPEN = /^<span\s+style\s*=\s*["']color\s*:\s*([^;"'\s]+)[^"']*["']\s*>$/i
 
 type ParseState = {
   openMark(mark: Mark): void
@@ -238,11 +238,13 @@ type ParseState = {
    markdown-it 不认识 `- [ ] foo` 这种任务语法，会把它解析成普通列表项，
    段落文本以 `[ ] foo` 开头。这里把它还原成带状态的 task_item。 */
 
-const TASK_PREFIX = /^\[([^\]]{0,16})\]\s+/
+const TASK_PREFIX = /^\[([^\]]{0,16})\](?:\s+|$)/
 
-function stripPrefix(node: PMNode, prefixLen: number): PMNode {
+function stripPrefix(node: PMNode, prefixLen: number): PMNode | null {
   if (node.isText) {
-    return schema.text(node.text!.slice(prefixLen), node.marks)
+    const remainingText = node.text!.slice(prefixLen)
+    if (!remainingText) return null
+    return schema.text(remainingText, node.marks)
   }
   if (node.isLeaf || node.childCount === 0) return node
   const children: PMNode[] = []
@@ -254,7 +256,8 @@ function stripPrefix(node: PMNode, prefixLen: number): PMNode {
         remaining -= size
         return
       }
-      children.push(stripPrefix(child, remaining))
+      const stripped = stripPrefix(child, remaining)
+      if (stripped) children.push(stripped)
       remaining = 0
     } else {
       children.push(child)
@@ -273,10 +276,10 @@ function toTaskItem(item: PMNode): PMNode | null {
   const m = TASK_PREFIX.exec(head.text!)
   if (!m) return null
 
-  const status = statusByMarker(m[1])
+  const status = statusByMarker(m[1]).key
   const rest = stripPrefix(first, m[0].length)
   // 内容被清空时补一个空段落，保证 task_item 的 content 合法
-  const firstContent = rest.content.size > 0 ? rest : schema.nodes.paragraph.create()
+  const firstContent = rest && rest.content.size > 0 ? rest : schema.nodes.paragraph.create()
 
   const blocks: PMNode[] = [firstContent]
   for (let i = 1; i < item.childCount; i++) blocks.push(item.child(i))
@@ -284,19 +287,71 @@ function toTaskItem(item: PMNode): PMNode | null {
   return nodes.task_item.create({ status }, blocks)
 }
 
-function convertTasks(node: PMNode): PMNode {
-  const children: PMNode[] = []
-  node.forEach((child) => children.push(convertTasks(child)))
-  if (children.length === 0) return node
+function splitBulletList(listNode: PMNode): PMNode[] {
+  const items: PMNode[] = []
+  listNode.forEach((child) => items.push(child))
+  if (items.length === 0) return [listNode]
 
-  if (node.type.name === 'bullet_list') {
-    const converted = children.map(toTaskItem)
-    if (converted.length > 0 && converted.every((c): c is PMNode => c !== null)) {
-      return nodes.task_list.create(null, converted)
+  const convertedTasks = items.map(toTaskItem)
+  // If no items are tasks, keep listNode as is
+  if (convertedTasks.every((t) => t === null)) {
+    return [listNode]
+  }
+
+  // If all items are tasks, convert entire list to task_list
+  if (convertedTasks.every((t): t is PMNode => t !== null)) {
+    return [nodes.task_list.create(null, convertedTasks)]
+  }
+
+  // Mixed items: split into consecutive chunks
+  const result: PMNode[] = []
+  let currentTasks: PMNode[] = []
+  let currentBullets: PMNode[] = []
+
+  function flushTasks() {
+    if (currentTasks.length > 0) {
+      result.push(nodes.task_list.create(null, currentTasks))
+      currentTasks = []
     }
   }
 
-  return node.type.create(node.attrs, Fragment.fromArray(children), node.marks)
+  function flushBullets() {
+    if (currentBullets.length > 0) {
+      result.push(nodes.bullet_list.create(null, currentBullets))
+      currentBullets = []
+    }
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    const task = convertedTasks[i]
+    if (task) {
+      flushBullets()
+      currentTasks.push(task)
+    } else {
+      flushTasks()
+      currentBullets.push(items[i])
+    }
+  }
+  flushBullets()
+  flushTasks()
+
+  return result
+}
+
+function convertTasks(node: PMNode): PMNode {
+  const convertedChildren: PMNode[] = []
+  node.forEach((child) => {
+    const processedChild = convertTasks(child)
+    if (processedChild.type.name === 'bullet_list') {
+      const splitBlocks = splitBulletList(processedChild)
+      convertedChildren.push(...splitBlocks)
+    } else {
+      convertedChildren.push(processedChild)
+    }
+  })
+
+  if (convertedChildren.length === 0) return node
+  return node.type.create(node.attrs, Fragment.fromArray(convertedChildren), node.marks)
 }
 
 export function parseMarkdown(text: string): PMNode {
@@ -317,18 +372,77 @@ export function emptyDoc(): PMNode {
   return schema.topNodeType.createAndFill()!
 }
 
+/** 剥离任何 HTML 标签及实体符号 */
+export function stripHtml(text: string): string {
+  if (!text) return ''
+  return text.replace(/<[^>]*>/g, '').replace(/&[a-zA-Z0-9#]+;/g, ' ').trim()
+}
+
+/** 彻底剥离任何 Markdown 代码、引用符号、强调符号与列表前缀，呈现纯净自然文本 */
+export function stripMarkdown(text: string): string {
+  if (!text) return ''
+  let cleaned = stripHtml(text)
+  // 1. 移除代码块围栏
+  cleaned = cleaned.replace(/```[a-zA-Z0-9_-]*/g, '')
+  // 2. 移除引用符号与反斜杠转义
+  cleaned = cleaned.replace(/^(?:>\s*)+/gm, '')
+  cleaned = cleaned.replace(/(?:^|\s)>\s*/g, ' ')
+  cleaned = cleaned.replace(/\\([>#*`_~[\]\-+])/g, '$1')
+  // 3. 移除列表项目符号与任务方括号 (- [x], - [ ], 1. )
+  cleaned = cleaned.replace(/^\s*(?:[-*+]|\d+[.)、])\s*(?:\[[^\]]*\]\s*)?/gm, '')
+  // 4. 移除 Markdown 链接与图片符号 ![alt](url) -> alt
+  cleaned = cleaned.replace(/!?\[([^\]]*)\]\([^)]+\)/g, '$1')
+  // 5. 移除粗体、斜体、删除线、行内代码符号 (**text**, *text*, ~~text~~, `text`)
+  cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, '$1')
+  cleaned = cleaned.replace(/__([^_]+)__/g, '$1')
+  cleaned = cleaned.replace(/~~([^~]+)~~/g, '$1')
+  cleaned = cleaned.replace(/`([^`]+)`/g, '$1')
+  cleaned = cleaned.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '$1')
+  cleaned = cleaned.replace(/(?<!\w)_([^_]+)_(?!\w)/g, '$1')
+  // 6. 移除剩余的孤立语法符号
+  cleaned = cleaned.replace(/(?:\*\*|__|~~|`)+/g, '')
+  // 7. 过滤标签（保留 C#、#123）
+  cleaned = cleaned.replace(/(?:^|\s)#[^ \t\n\r#,]+/g, '')
+  cleaned = cleaned.replace(/#+/g, '')
+  return cleaned.trim()
+}
+
+/** 规范化笔记标题：去除行内任何 HTML 标签、Markdown 语法标记，提取干净标题 */
+export function cleanTitle(title: string): string {
+  if (!title) return '无标题'
+  const cleaned = stripMarkdown(title)
+  return cleaned || '无标题'
+}
+
 /** 从文档提取标题：第一个标题节点，或首行的前 40 字 */
 export function docTitle(doc: PMNode): string {
   let title = ''
   doc.forEach((node) => {
     if (title) return
     if (node.type.name === 'heading') {
-      title = node.textContent
+      title = cleanTitle(node.textContent)
     }
   })
   if (title) return title
   const first = doc.firstChild
   if (!first) return ''
-  const raw = first.textContent.trim()
+  const raw = cleanTitle(first.textContent.trim())
   return raw.length > 40 ? raw.slice(0, 40) + '…' : raw
+}
+
+/**
+ * 明确判定整篇笔记内容是否「含有待办」：
+ * 1. 标准与扩展 Markdown 复选框/任务项：- [ ], - [x], - [inProgress], - [in-progress], - [inReview], - [backlog], - [cancelled] 等；
+ * 2. HTML 任务或复选框标记；
+ * 3. 显式待办语义标记（TODO、待办事项、任务清单等）。
+ */
+export function hasTodoContent(content: string): boolean {
+  if (!content) return false
+  const taskRegex = /^\s*(?:[-*+]|\d+[.)])\s*\[(?:[\sXx]|in-?progress|in_?progress|in-?review|backlog|cancelled|abandoned|done)?\]/mi
+  if (taskRegex.test(content)) return true
+  const htmlRegex = /<input[^>]+type=["']checkbox["']|<[^>]+data-type=["']task_item["']/i
+  if (htmlRegex.test(content)) return true
+  const semanticRegex = /^\s*(?:#{1,6}\s*)?(?:【待办】|【任务】|\[TODO\]|\[待办\]|TODO:|待办事项|任务清单)/mi
+  if (semanticRegex.test(content)) return true
+  return false
 }

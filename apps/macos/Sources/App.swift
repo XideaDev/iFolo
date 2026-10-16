@@ -17,23 +17,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let delegate = AppDelegate()
         app.delegate = delegate
         app.setActivationPolicy(.accessory)
+        setupMainMenu()
         app.run()
+    }
+
+    /// 设置基础编辑主菜单（保证 accessory 常驻后台 App 中 ⌘V 粘贴、⌘C 复制、⌘A 全选等剪贴板动作正常路由至 WKWebView）
+    private static func setupMainMenu() {
+        let mainMenu = NSMenu()
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redoItem = NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        redoItem.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(redoItem)
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+        NSApp.mainMenu = mainMenu
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.rotateIfNeeded()
         Log.write("──────── iFolo 启动 v\(Self.version) ────────")
+        if let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let appIcon = NSImage(contentsOf: iconURL) {
+            NSApp.applicationIconImage = appIcon
+        }
 
         // 定时器与监听必须在 didFinishLaunching 里起，不要放进任何视图的 onAppear
         statusItem = StatusItem()
 
-        let trigger = EdgeTrigger()
+        let trigger = EdgeTrigger.shared
         trigger.zoneWidth = 3
         trigger.dwell = 0.12
         trigger.start()
         edgeTrigger = trigger
 
         registerHotKeys()
+
+        // 预热本地向量检索引擎
+        SearchEngine.shared.warmup(notes: Store.shared.listNotes())
 
         // 首次启动时把面板亮一下，让用户知道它在哪
         if !UserDefaults.standard.bool(forKey: "ifolo.hasLaunchedBefore") {

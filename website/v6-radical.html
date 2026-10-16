@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iFolo 面板头部 · 六种大重构方案</title>
+<link rel="stylesheet" href="./assets/tokens.css">
+<link rel="stylesheet" href="./assets/panel.css">
+<link rel="stylesheet" href="./assets/radical.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; font-family: var(--font-ui); color: var(--text-primary);
+  background: var(--canvas); -webkit-font-smoothing: antialiased; padding: 0 0 90px;
+}
+a { color: inherit; text-decoration: none; }
+code { font-family: var(--font-mono); font-size: .92em; background: var(--surface-sunken); padding: 1px 5px; border-radius: 5px; }
+.wrap { width: min(1180px, 100% - 48px); margin-inline: auto; }
+.page-bg {
+  position: fixed; inset: 0; z-index: -1;
+  background: radial-gradient(70% 44% at 50% -8%, rgba(92, 163, 255, .11), transparent 70%), var(--canvas);
+}
+
+.head { padding: 66px 0 0; }
+.head h1 { margin: 16px 0 0; font-size: clamp(28px, 3.6vw, 44px); font-weight: 700; letter-spacing: -.032em; line-height: 1.14; }
+.head .lead { margin: 18px 0 0; max-width: 720px; font-size: clamp(15px, 1.3vw, 17px); line-height: 1.68; color: var(--text-secondary); }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-tertiary); }
+.eyebrow i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue-500); }
+
+/* 范式对照：上一版 vs 这一版 */
+.contrast { margin-top: 36px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.cc { padding: 22px 24px 24px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-raised); }
+.cc h3 { margin: 0 0 10px; font-size: 14px; font-weight: 700; }
+.cc h3 span { font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; margin-right: 8px; vertical-align: 1px; }
+.cc.old h3 span { background: var(--warn-soft); color: var(--warn); }
+.cc.new h3 span { background: var(--accent-subtle); color: var(--accent); }
+.cc p { margin: 0; font-size: 13px; line-height: 1.68; color: var(--text-secondary); }
+.cc ul { margin: 12px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.8; color: var(--text-secondary); }
+
+/* 原型网格 */
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px 32px; margin-top: 48px; }
+.proto { display: flex; flex-direction: column; }
+.proto__hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 5px; }
+.proto__no { font-family: var(--font-mono); font-size: 12px; font-weight: 800; color: var(--accent); flex: 0 0 auto; }
+.proto__nm { font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+.proto__tag { margin-left: auto; font-size: 10.5px; font-weight: 750; padding: 3px 9px; border-radius: 999px; background: var(--success-soft); color: var(--success); flex: 0 0 auto; }
+.proto__ds { font-size: 13px; line-height: 1.62; color: var(--text-secondary); margin: 0 0 16px; min-height: 60px; }
+.proto__stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.proto__ft { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.pf { display: flex; gap: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-secondary); }
+.pf b { flex: 0 0 auto; font-size: 10px; font-weight: 800; padding: 3px 7px; border-radius: 5px; height: 18px; display: inline-flex; align-items: center; }
+.pf b.g { background: var(--success-soft); color: var(--success); }
+.pf b.o { background: var(--warn-soft); color: var(--warn); }
+.pf b.n { background: var(--surface-sunken); color: var(--text-secondary); }
+
+/* 原型操作按钮 */
+.ctrl { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.ctrl b {
+  font-size: 10.5px; font-weight: 700; padding: 4px 11px; border-radius: 999px; cursor: pointer;
+  background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border-subtle);
+}
+.ctrl b:hover { border-color: var(--border-strong); }
+.ctrl b.on { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-border); }
+
+/* 对照表 */
+.cmp { margin-top: 72px; }
+.cmp table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-raised); }
+.cmp th, .cmp td { padding: 13px 15px; text-align: left; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+.cmp thead th { font-size: 11.5px; font-weight: 700; color: var(--text-tertiary); background: var(--surface-sunken); }
+.cmp tbody tr:last-child td { border-bottom: none; }
+.cmp td:first-child { font-weight: 650; white-space: nowrap; }
+.cmp .num { font-family: var(--font-mono); font-weight: 700; white-space: nowrap; }
+.cmp .best { color: var(--success); }
+.cmp .rec { background: var(--accent-subtle); }
+
+.foot { margin-top: 60px; padding-top: 30px; border-top: 1px solid var(--border-subtle); font-size: 13px; line-height: 1.7; color: var(--text-tertiary); }
+
+@media (max-width: 1120px) {
+  .contrast { grid-template-columns: minmax(0, 1fr); }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .cmp { overflow-x: auto; }
+  .cmp table { min-width: 800px; }
+}
+</style>
+</head>
+<body>
+<div class="page-bg"></div>
+
+<div class="wrap head">
+  <span class="eyebrow"><i></i>面板头部 · 大重构</span>
+  <h1>换掉「固定头部」这个范式</h1>
+  <p class="lead">
+    上一页的六个方案都在同一个前提里做减法和重排：<b>头部是一个固定横条，里面放 N 行</b>。
+    这一页换前提——头部可以不占高度、可以不常驻、可以不成条、可以不在顶部。
+    六种范式，每种都是一个不同的答案。
+  </p>
+
+  <div class="contrast">
+    <div class="cc old">
+      <h3><span>上一页</span>固定头部 + 减行</h3>
+      <p>承认头部是一个固定区块，然后想办法把它压矮：合并行、折叠、双态、挪到侧栏。</p>
+      <ul>
+        <li>头部高度 172 → 68px，省下的量有上限</li>
+        <li>每一行仍然常驻，只是排得更紧</li>
+        <li>改动局限在 <code>ui/</code> 里，不动数据流</li>
+      </ul>
+    </div>
+    <div class="cc new">
+      <h3><span>这一页</span>换范式</h3>
+      <p>不再假设头部必须是一个横条。它可以消失、可以变小浮起、可以变圆、可以转 90°、可以溶进正文。</p>
+      <ul>
+        <li>头部高度 172 → <b>0</b>（① ② ③ ⑥ 都是 0）</li>
+        <li>低频功能从「常驻」变成「唤出」，唤出成本用键盘抵掉</li>
+        <li>代价：改动会动到交互契约，需要同步改快捷键表与引导</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="wrap cmp">
+  <h2 style="margin:0 0 18px;font-size:20px;font-weight:700;letter-spacing:-.02em">横向对照</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:120px">范式</th>
+        <th style="width:76px">常驻高度</th>
+        <th style="width:150px">头部变成了什么</th>
+        <th>最大的好处</th>
+        <th>代价 / 风险</th>
+      </tr>
+    </thead>
+    <tbody id="cmpBody"></tbody>
+  </table>
+</div>
+
+<div class="wrap foot">
+  面板宽度按真机 448px 复刻，正文高度 420px。常驻高度指不操作时头部占掉的纵向像素。
+  上一页的六个「减行」方案见 <a href="./v5-headers.html" style="color:var(--accent)">v5-headers.html</a>。
+</div>
+
+<script type="module">
+import { LOGO } from './assets/panel.js'
+
+/* ---------- 图标 ---------- */
+const S = (p, w = '1.7') => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round">${p}</svg>`
+const I = {
+  search: S('<circle cx="7" cy="7" r="4.3"/><path d="M10.3 10.3 14 14"/>'),
+  dots: S('<circle cx="3.6" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="12.4" cy="8" r="1.1" fill="currentColor" stroke="none"/>'),
+  plus: S('<path d="M8 3.4v9.2M3.4 8h9.2"/>', '2'),
+  link: S('<path d="M6.6 9.4a2.6 2.6 0 0 0 3.7 0l2-2a2.6 2.6 0 0 0-3.7-3.7l-.7.7"/><path d="M9.4 6.6a2.6 2.6 0 0 0-3.7 0l-2 2a2.6 2.6 0 0 0 3.7 3.7l.7-.7"/>', '1.6'),
+  color: S('<path d="M3.6 10.4 7 3.6l3.4 6.8M4.6 8.4h4.8"/><path d="M3 13.6h10" stroke-width="2.2"/>', '1.6'),
+  hl: S('<path d="M3 13.6h10"/><path d="M6.2 9.4 4.4 11.2l1.8 1.8 1.8-1.8z" fill="currentColor" stroke-linejoin="round"/><path d="M8.6 5.6 11.4 2.8l1.8 1.8-2.8 2.8"/>', '1.6'),
+  emo: S('<circle cx="8" cy="8" r="5.6"/><path d="M5.9 9.3a2.6 2.6 0 0 0 4.2 0"/><circle cx="6.2" cy="6.4" r=".7" fill="currentColor" stroke="none"/><circle cx="9.8" cy="6.4" r=".7" fill="currentColor" stroke="none"/>', '1.6'),
+  // 径向菜单的 8 个扇区
+  h: S('<path d="M3.4 3.6h9.2M3.4 8h6M3.4 12.4h4"/>'),
+  list: S('<path d="M6 4.6h7M6 8h7M6 11.4h7"/><circle cx="3.6" cy="4.6" r=".9" fill="currentColor" stroke="none"/><circle cx="3.6" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="3.6" cy="11.4" r=".9" fill="currentColor" stroke="none"/>'),
+  task: S('<rect x="2.8" y="2.8" width="10.4" height="10.4" rx="2.6"/><path d="M5.6 8.2l1.9 1.9 3.4-3.8"/>'),
+  code: S('<path d="M6.2 4.4 3 8l3.2 3.6M9.8 4.4 13 8l-3.2 3.6"/>'),
+  quote: S('<path d="M4 4v8M7.2 5.4h5.2M7.2 8h5.2M7.2 10.6h3.4"/>'),
+  image: S('<rect x="2.6" y="3.4" width="10.8" height="9.2" rx="1.6"/><path d="M2.6 10.2 6 7.2l3 2.6 1.8-1.4 2.6 2.2"/><circle cx="6" cy="6" r=".9" fill="currentColor" stroke="none"/>'),
+  table: S('<rect x="2.6" y="3.4" width="10.8" height="9.2" rx="1.6"/><path d="M2.6 6.6h10.8M2.6 9.6h10.8M6.4 3.4v9.2M9.8 3.4v9.2"/>'),
+  more: S('<circle cx="3.6" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="12.4" cy="8" r="1.1" fill="currentColor" stroke="none"/>'),
+  // 侧栏
+  notes: S('<path d="M4 2.6h5.4L13 6.2v7.2H4z"/><path d="M9.2 2.6v3.8H13"/>'),
+  tags: S('<path d="M8.4 2.6H13v4.6l-6 6-4.6-4.6z"/><circle cx="10.6" cy="5" r="1"/>'),
+  gear: S('<circle cx="8" cy="8" r="2.4"/><path d="M8 2.6v1.6M8 11.8v1.6M13.4 8h-1.6M4.2 8H2.6M11.8 4.2l-1.1 1.1M5.3 10.7l-1.1 1.1M11.8 11.8l-1.1-1.1M5.3 5.3 4.2 4.2"/>'),
+}
+
+/* ---------- 复用零件 ---------- */
+const logo = `<span class="rx-logo">${LOGO}</span>`
+const fmtBar = `<span class="rx-fmt b">B</span><span class="rx-fmt i">I</span><span class="rx-fmt u">U</span><span class="rx-fmt s">S</span><span class="rx-fmt mono">&lt;/&gt;</span><span class="rx-sep"></span><span class="rx-fmt">${I.link}</span><span class="rx-fmt">${I.color}</span><span class="rx-fmt">${I.hl}</span><span class="rx-fmt">${I.emo}</span>`
+const tabs = `<span class="rx-tab">同步层的重构计划<i>×</i></span><span class="rx-tab on">然后根据fi…<i>×</i></span><span class="rx-tab">你好的话大海俊…<i>×</i></span><span class="rx-tab" style="background:transparent;color:var(--text-tertiary);font-weight:700">＋</span>`
+const acts = `<span style="margin-left:auto;display:flex;gap:1px"><span class="rx-ib">${I.search}</span><span class="rx-ib">${I.dots}</span></span>`
+
+const BODY = `<div class="ifp__doc">
+  <h1 class="ifp__h1">为什么现在做</h1>
+  <p class="ifp__p">当前 <code>Store</code> 把附件内嵌在正文里，一条带 12 张截图的笔记轻松超过 1&nbsp;MB。参考实现把这类笔记直接跳过同步。</p>
+  <div class="ifp__todo"><span class="ifp__cb done"></span><span class="ifp__line">调研 CRDT 库（Yjs / Automerge）</span><span class="ifp__st done">已完成</span></div>
+  <div class="ifp__todo"><span class="ifp__cb"></span><span class="ifp__line">把附件抽成独立通道</span><span class="ifp__st ip">进行中</span></div>
+  <div class="ifp__todo"><span class="ifp__cb"></span><span class="ifp__line">冲突解决 UI</span><span class="ifp__st rv">审核中</span></div>
+  <div class="ifp__todo"><span class="ifp__cb"></span><span class="ifp__line">迁移脚本：把历史笔记的内嵌图片外置</span><span class="ifp__st td">待办</span></div>
+  <h2 class="ifp__h2">关键决策</h2>
+  <p class="ifp__p"><b>不引入服务端解密能力。</b>中继只存密文与操作日志，密钥永远不出设备。</p>
+</div>`
+
+/* ============================================================================
+   ① 命令行式
+   ========================================================================= */
+const P1 = `
+<div class="ifp rx-stage rx-cli">
+  <div class="ifp__body">
+    ${BODY}
+    <div class="rx-idle">按 / 或 ⌘K 输入命令</div>
+    <div class="rx-ac">
+      <div class="it on"><code>h2</code>转为标题 2<span class="d">块</span></div>
+      <div class="it"><code>todo</code>插入待办<span class="d">块</span></div>
+      <div class="it"><code>code</code>插入代码块<span class="d">块</span></div>
+      <div class="hr"></div>
+      <div class="it"><code>find</code>在当前文档中查找<span class="d">⌘F</span></div>
+      <div class="it"><code>tab</code>切换标签页<span class="d">⌘L</span></div>
+    </div>
+    <div class="rx-prompt"><span class="car">▸</span><span class="in">h2</span><span class="caret"></span></div>
+  </div>
+</div>`
+
+/* ============================================================================
+   ② 浮岛式
+   ========================================================================= */
+const P2 = `
+<div class="ifp rx-stage rx-island">
+  <div class="ifp__body">
+    <div class="rx-scrim"></div>
+    <div class="rx-pill">
+      <span class="dot"></span>
+      <span class="nm">然后根据fi…</span>
+      <span class="tail"><span class="rx-ib">${I.search}</span></span>
+      <div class="rx-card">
+        <div class="r a">${logo}<span class="ttl">然后根据fi…</span><span class="sub">· 已保存</span>${acts}</div>
+        <div class="r b">${fmtBar}<span style="margin-left:auto;color:var(--text-tertiary);font-size:14px">⋯</span></div>
+      </div>
+    </div>
+    ${BODY}
+  </div>
+</div>`
+
+/* ============================================================================
+   ③ 径向菜单
+   ========================================================================= */
+const SECTORS = [
+  ['h', '标题'], ['list', '列表'], ['task', '任务'], ['code', '代码'],
+  ['quote', '引用'], ['link', '链接'], ['image', '图片'], ['table', '表格'],
+]
+const P3 = `
+<div class="ifp rx-stage rx-radial">
+  <div class="ifp__body">
+    ${BODY}
+    <div class="rx-dim"></div>
+    <div class="rx-wheel">
+      <div class="ring"></div>
+      <div class="hl"></div>
+      <div class="hub"><span class="t">正文</span><span class="s">当前块</span></div>
+      ${SECTORS.map(([k, label], i) => `<div class="sp" style="--i:${i}" data-i="${i}">${I[k]}<span>${label}</span></div>`).join('')}
+    </div>
+    <div class="rx-hint">按住 ⌥ 在任意位置唤出</div>
+  </div>
+</div>`
+
+/* ============================================================================
+   ④ 状态机单行
+   ========================================================================= */
+const P4 = `
+<div class="ifp rx-stage rx-morph">
+  <div class="rx-row">
+    <div class="rx-state on" data-s="0">
+      ${logo}<span class="ttl">然后根据fi…</span><span class="sub">· 已保存</span>${acts}
+    </div>
+    <div class="rx-state" data-s="1">
+      <span style="color:var(--accent);font-weight:800;font-size:13px">▸</span>
+      <span class="field focus" style="flex:0 1 auto;min-width:120px"><span style="font-family:var(--font-mono)">/h2</span><span class="caret"></span></span>
+      <span style="display:flex;gap:4px;overflow:hidden">
+        <span class="rx-tab on">标题 2</span><span class="rx-tab">待办</span><span class="rx-tab">代码块</span>
+      </span>
+    </div>
+    <div class="rx-state" data-s="2">
+      <span class="field focus" style="flex:1 1 auto">${I.search}<span>在当前文档中查找…</span><span class="caret"></span><span style="margin-left:auto;color:var(--text-tertiary)">3 / 12</span></span>
+      <span class="rx-ib">${I.dots}</span>
+    </div>
+    <div class="rx-state" data-s="3">${tabs}${acts}</div>
+    <div class="rx-state" data-s="4">
+      <span style="font-size:10.5px;font-weight:700;color:var(--text-tertiary);flex:0 0 auto">已选中 18 字</span><span class="rx-sep"></span>
+      ${fmtBar}<span style="margin-left:auto;color:var(--text-tertiary);font-size:14px">⋯</span>
+    </div>
+  </div>
+  <div class="ifp__body">${BODY}</div>
+</div>`
+
+/* ============================================================================
+   ⑤ 侧栏优先
+   ========================================================================= */
+const P5 = `
+<div class="ifp rx-stage rx-rail">
+  <div class="rail">
+    <div class="mk">${LOGO}<b>iFolo</b></div>
+    <div class="it on">${I.notes}<span>全部笔记</span></div>
+    <div class="it">${I.search}<span>搜索</span></div>
+    <div class="it">${I.tags}<span>标签</span></div>
+    <div class="grp">格式</div>
+    <div class="fmts">
+      <div class="it"><b class="b">B</b><span>加粗</span></div>
+      <div class="it"><b class="i">I</b><span>斜体</span></div>
+      <div class="it"><b class="u">U</b><span>下划线</span></div>
+      <div class="it"><b class="s">S</b><span>删除线</span></div>
+      <div class="it"><b class="mono" style="font-family:var(--font-mono);font-size:9.5px">&lt;/&gt;</b><span>行内代码</span></div>
+    </div>
+    <div class="grp">其他</div>
+    <div class="it">${I.gear}<span>设置</span></div>
+  </div>
+  <div class="vcol">
+    <div class="bare"><span class="nm">然后根据fi…</span><span>· 已保存</span><span style="margin-left:auto">${I.search}</span></div>
+    <div class="ifp__body">${BODY}</div>
+    <div class="ifp__status"><span><b>⌥⌘N</b> 呼出 · <b>⌘K</b> 命令面板</span><span class="ok"><i></i>已保存</span></div>
+  </div>
+</div>`
+
+/* ============================================================================
+   ⑥ 文档即界面
+   ========================================================================= */
+const P6 = `
+<div class="ifp rx-stage rx-inline">
+  <div class="ifp__body">
+    <div class="rx-doc">
+      <h1 class="rx-title">然后根据fi…</h1>
+      <div class="rx-meta"><span class="ok"><i></i>已自动保存</span><span>·</span><span>12 个段落</span><span>·</span><span>今天 03:20</span></div>
+      <div class="rx-cards">
+        <div class="rx-card"><span class="t">同步层的重构计划</span><span class="s">把同步拆成…</span></div>
+        <div class="rx-card on"><span class="t">然后根据fi…</span><span class="s">空白笔记</span></div>
+        <div class="rx-card"><span class="t">你好的话大海俊杰</span><span class="s">放姐夫宋哥你哈…</span></div>
+        <div class="rx-card add">＋</div>
+      </div>
+      ${BODY.replace('<div class="ifp__doc">', '<div class="ifp__doc" style="padding:0">')}
+      <div class="rx-caretbar">
+        <span class="f b">B</span><span class="f i">I</span><span class="f u">U</span><span class="f s">S</span><span class="f mono">&lt;/&gt;</span>
+        <span class="sp"></span><span class="f">${I.link}</span><span class="f">${I.color}</span><span class="f">${I.emo}</span>
+      </div>
+    </div>
+  </div>
+</div>`
+
+/* ============================================================================
+   方案清单
+   ========================================================================= */
+const SCHEMES = [
+  {
+    no: '①', id: 'p1', name: '命令行式', html: P1, h: 0,
+    tag: '常驻 0px',
+    ds: '没有按钮，只有一个输入行。标题、待办、代码块、查找、切标签——全部靠打字。<code>/h2</code> 就是「转为标题 2」。灵感来自 Vim 的 <code>:</code> 与 Sublime 的 ⌘⇧P。',
+    pros: [['g', '零占用'], ['n', '不操作时面板上只有内容；一切功能都在一个入口里']],
+    cons: [['o', '门槛'], ['n', '要记住命令词；鼠标用户几乎用不了，必须配 ⌘K 图形化面板兜底']],
+    becomes: '一个输入行', benefit: '功能无限可扩展，加一个命令就是加一个功能', risk: '要记命令词，鼠标用户不友好',
+  },
+  {
+    no: '②', id: 'p2', name: '浮岛式', html: P2, h: 0,
+    tag: '常驻 0px',
+    ds: '一颗 168×30 的胶囊浮在内容上，只显示标题与保存状态。指针移上去，它长成一条完整的头部——标题行 + 工具栏。不占布局，悬停才存在。',
+    pros: [['g', '零占用'], ['n', '不占布局高度，内容从第一像素开始；需要时才长大']],
+    cons: [['o', '注意'], ['n', '展开时会遮住首行（可用内容下移过渡缓解）；悬停触达在触屏上要改成点击']],
+    becomes: '一颗可伸缩的胶囊', benefit: '不占布局，内容从第一像素开始', risk: '展开时遮住首行；触屏需改点击',
+  },
+  {
+    no: '③', id: 'p3', name: '径向菜单', html: P3, h: 0,
+    tag: '常驻 0px',
+    ds: '格式不再是一排按钮，而是一次空间手势。按住 ⌥，光标处弹出一圈八个扇区——标题 / 列表 / 任务 / 代码 / 引用 / 链接 / 图片 / 表格。往哪个方向甩，就是哪个格式。',
+    pros: [['g', '最快'], ['n', '八选一只要一次方向动作，比在一排按钮里找快得多；肌肉记忆形成后不用看']],
+    cons: [['o', '门槛'], ['n', '要学一次；扇区数量有上限（8 个是舒适区），更多项要分二级']],
+    becomes: '光标处的一圈扇区', benefit: '八选一只需一次方向动作，形成肌肉记忆', risk: '需要学习；扇区数量有上限',
+  },
+  {
+    no: '④', id: 'p4', name: '状态机单行', html: P4, h: 40,
+    tag: '常驻 40px',
+    ds: '承认一件事：这五行本来就不会同时用。于是永远只有一行 40px，它是什么取决于你在干什么——空闲时是标题栏，输入 / 时是块菜单，⌘F 时是查找框，多标签时是标签条，选中时是格式栏。',
+    pros: [['g', '省 132px'], ['n', '结构最简单：只有一行要维护；状态切换天然互斥，不会挤']],
+    cons: [['o', '注意'], ['n', '同一位置承载不同功能，需要一点过渡动效帮人理解「它变了」']],
+    becomes: '一行，五种面孔', benefit: '结构最简单，只有一行要维护', risk: '同位置承载多义，需要过渡动效',
+  },
+  {
+    no: '⑤', id: 'p5', name: '侧栏优先', html: P5, h: 30,
+    tag: '纵向仅 30px',
+    ds: '把轴翻过来。整个面板变成左右两栏：46px 图标栏（悬停展开到 178px）+ 内容。笔记、搜索、标签、格式、设置全在左栏——纵向空间从此不再是稀缺资源。',
+    pros: [['g', '可扩展'], ['n', '纵向空间用不完，功能加到十几个也不挤；46px 收起时仍很安静']],
+    cons: [['o', '代价'], ['n', '面板可用宽度从 448 变成 402（收起时）；要改根结构；格式工具在侧栏不如顶部顺手']],
+    becomes: '左侧一栏', benefit: '纵向空间不再稀缺，功能可无限加', risk: '占横向宽度；格式工具位置反直觉',
+  },
+  {
+    no: '⑥', id: 'p6', name: '文档即界面', html: P6, h: 0,
+    tag: '常驻 0px',
+    ds: '头部溶解进正文。标题就是可编辑的 H1；标签页变成正文顶部的卡片横滑条（带摘要，比标签页信息更多）；格式工具只在光标所在段落浮出。面板上除了内容，什么都没有。',
+    pros: [['g', '最彻底'], ['n', '视觉上「没有界面」，卡片比标签页更有信息量；标题直接可编辑，少一次点击']],
+    cons: [['o', '代价'], ['n', '标题与 H1 合一后，笔记标题的语义变模糊；卡片横滑条占一行高度']],
+    becomes: '正文的一部分', benefit: '视觉上没有界面，卡片比标签页信息更多', risk: '标题与 H1 语义合并；卡片占一行',
+  },
+]
+
+/* ============================================================================
+   渲染
+   ========================================================================= */
+document.getElementById('grid').innerHTML = SCHEMES.map((s) => `
+<article class="proto" data-scheme="${s.id}">
+  <div class="proto__hd">
+    <span class="proto__no">${s.no}</span>
+    <span class="proto__nm">${s.name}</span>
+    <span class="proto__tag">${s.tag}</span>
+  </div>
+  <p class="proto__ds">${s.ds}</p>
+  <div class="proto__stage">
+    ${s.html}
+    <div class="ctrl" data-ctrl="${s.id}"></div>
+  </div>
+  <div class="proto__ft">
+    ${[...s.pros, ...s.cons].map(([k, t]) => `<div class="pf"><b class="${k}">${k === 'g' ? '好处' : k === 'o' ? '代价' : '说明'}</b><span>${t}</span></div>`).join('')}
+  </div>
+</article>`).join('')
+
+/* 每个原型下方的操作按钮 */
+const CTRLS = {
+  p1: [['输入命令', 'type'], ['空闲', 'idle']],
+  p2: [['悬停展开', 'open'], ['收起', 'close']],
+  p3: [['按住 ⌥ 唤出', 'open'], ['收起', 'close']],
+  p4: [['空闲', '0'], ['输入 /', '1'], ['⌘F', '2'], ['多标签', '3'], ['选中文字', '4']],
+  p5: [['悬停展开', 'open'], ['收起', 'close']],
+  p6: [['光标处浮出工具条', 'open'], ['收起', 'close']],
+}
+document.querySelectorAll('[data-ctrl]').forEach((box) => {
+  const id = box.dataset.ctrl
+  box.innerHTML = CTRLS[id].map(([label, act], i) => `<b data-act="${act}"${i === 0 && id === 'p4' ? ' class="on"' : ''}>${label}</b>`).join('')
+})
+
+/* ============================================================================
+   交互
+   ========================================================================= */
+// ① 命令行
+const p1 = document.querySelector('[data-scheme="p1"]')
+document.querySelector('[data-ctrl="p1"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act
+  if (!act) return
+  p1.querySelector('.rx-cli').classList.toggle('typing', act === 'type')
+  document.querySelectorAll('[data-ctrl="p1"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+// 点面板本体也能进入输入态
+p1.querySelector('.rx-idle')?.addEventListener('click', () => {
+  p1.querySelector('.rx-cli').classList.add('typing')
+  document.querySelectorAll('[data-ctrl="p1"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === 'type'))
+})
+
+// ② 浮岛
+const p2 = document.querySelector('[data-scheme="p2"]')
+const island = p2.querySelector('.rx-island')
+const pill = p2.querySelector('.rx-pill')
+pill.addEventListener('mouseenter', () => island.classList.add('open'))
+pill.addEventListener('mouseleave', () => setTimeout(() => { if (!pill.matches(':hover')) island.classList.remove('open') }, 300))
+document.querySelector('[data-ctrl="p2"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act
+  if (!act) return
+  island.classList.toggle('open', act === 'open')
+  document.querySelectorAll('[data-ctrl="p2"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+
+// ③ 径向
+const p3 = document.querySelector('[data-scheme="p3"]')
+const radial = p3.querySelector('.rx-radial')
+const hubT = p3.querySelector('.hub .t')
+const hubS = p3.querySelector('.hub .s')
+p3.querySelectorAll('.sp').forEach((sp) => {
+  sp.addEventListener('mouseenter', () => {
+    const i = +sp.dataset.i
+    p3.querySelector('.hl').style.setProperty('--i', i)
+    p3.querySelector('.hl').classList.add('on')
+    p3.querySelectorAll('.sp').forEach((x) => x.classList.toggle('on', x === sp))
+    hubT.textContent = SECTORS[i][1]
+    hubS.textContent = '回车应用'
+  })
+})
+p3.querySelector('.rx-wheel').addEventListener('mouseleave', () => {
+  p3.querySelector('.hl').classList.remove('on')
+  p3.querySelectorAll('.sp').forEach((x) => x.classList.remove('on'))
+  hubT.textContent = '正文'
+  hubS.textContent = '当前块'
+})
+document.querySelector('[data-ctrl="p3"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act
+  if (!act) return
+  radial.classList.toggle('open', act === 'open')
+  document.querySelectorAll('[data-ctrl="p3"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+
+// ④ 状态机
+const p4 = document.querySelector('[data-scheme="p4"]')
+document.querySelector('[data-ctrl="p4"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act
+  if (act === undefined) return
+  p4.querySelectorAll('.rx-state').forEach((st) => st.classList.toggle('on', st.dataset.s === act))
+  document.querySelectorAll('[data-ctrl="p4"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+
+// ⑤ 侧栏
+const p5 = document.querySelector('[data-scheme="p5"]')
+const railPanel = p5.querySelector('.rx-rail')
+const rail = p5.querySelector('.rail')
+rail.addEventListener('mouseenter', () => railPanel.classList.add('open'))
+rail.addEventListener('mouseleave', () => railPanel.classList.remove('open'))
+document.querySelector('[data-ctrl="p5"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act
+  if (!act) return
+  railPanel.classList.toggle('open', act === 'open')
+  document.querySelectorAll('[data-ctrl="p5"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+
+// ⑥ 文档即界面
+const p6 = document.querySelector('[data-scheme="p6"]')
+const bar6 = p6.querySelector('.rx-caretbar')
+const para6 = p6.querySelector('.ifp__p')
+function place6() {
+  // 浮动条相对 .rx-doc 定位（它有 position: relative）
+  const host = p6.querySelector('.rx-doc')
+  const hr = host.getBoundingClientRect(), pr = para6.getBoundingClientRect()
+  bar6.style.left = '18px'
+  bar6.style.top = (pr.bottom - hr.top + 6) + 'px'
+}
+document.querySelector('[data-ctrl="p6"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act
+  if (!act) return
+  if (act === 'open') place6()
+  bar6.classList.toggle('on', act === 'open')
+  document.querySelectorAll('[data-ctrl="p6"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+p6.querySelector('.ifp__body').addEventListener('mouseleave', () => bar6.classList.remove('on'))
+p6.querySelector('.ifp__p').addEventListener('mouseenter', () => { place6(); bar6.classList.add('on') })
+
+/* ============================================================================
+   默认状态：每个原型先展开到「最有信息量」的样子，否则截图里看不出它是什么
+   ========================================================================= */
+requestAnimationFrame(() => {
+  p1.querySelector('.rx-cli').classList.add('typing')
+  island.classList.add('open')
+  radial.classList.add('open')
+  railPanel.classList.add('open')
+  place6(); bar6.classList.add('on')
+  document.querySelectorAll('.ctrl b:first-child').forEach((b) => b.classList.add('on'))
+})
+
+/* ============================================================================
+   对照表
+   ========================================================================= */
+document.getElementById('cmpBody').innerHTML = SCHEMES.map((s) => `
+<tr class="${s.id === 'p4' ? 'rec' : ''}">
+  <td>${s.no} ${s.name}</td>
+  <td class="num ${s.h <= 40 ? 'best' : ''}">${s.h}px</td>
+  <td>${s.becomes}</td>
+  <td>${s.benefit}</td>
+  <td>${s.risk}</td>
+</tr>`).join('')
+</script>
+</body>
+</html>

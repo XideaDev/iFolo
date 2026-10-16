@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iFolo 官网首页 · 四版交互方案</title>
+<link rel="stylesheet" href="./assets/tokens.css">
+<link rel="stylesheet" href="./assets/site.css">
+<style>
+body { padding: 0 0 90px; }
+
+/* 索引页的背景：扁平画布 + 一层极淡的品牌氛围，不用三色光晕那种 mesh 渐变 */
+.page-bg {
+  position: fixed; inset: 0; z-index: -1;
+  background:
+    radial-gradient(70% 46% at 50% -8%, rgba(92, 163, 255, .12), transparent 70%),
+    linear-gradient(180deg, #F7F9FC 0%, #F5F7FA 40%, #F5F7FA 100%);
+}
+[data-theme="dark"] .page-bg {
+  background: radial-gradient(70% 46% at 50% -8%, rgba(92, 163, 255, .14), transparent 70%), #15181D;
+}
+
+.head { padding: 74px 0 0; }
+.head h1 { margin: 18px 0 0; }
+.head .lead { margin: 20px 0 0; max-width: 640px; }
+
+.meta {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px;
+}
+.meta span {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 600; color: var(--ink-600);
+  background: rgba(255, 255, 255, .78); border: 1px solid rgba(255, 255, 255, .9);
+  border-radius: 999px; padding: 6px 13px;
+}
+.meta span i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue-500); }
+
+.grid { display: flex; flex-direction: column; gap: 34px; margin-top: 56px; }
+
+.opt {
+  display: grid; grid-template-columns: 400px minmax(0, 1fr);
+  gap: 34px; align-items: stretch;
+  border-radius: 20px; overflow: hidden;
+  background: rgba(255, 255, 255, .78);
+  border: 1px solid rgba(255, 255, 255, .9);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 26px 60px -40px rgba(16, 24, 40, .4);
+  backdrop-filter: blur(16px);
+  transition: transform 300ms var(--ease-out), box-shadow 300ms var(--ease-out);
+}
+.opt:hover { transform: translateY(-3px); box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 34px 70px -40px rgba(16, 24, 40, .48); }
+
+.opt__txt { padding: 34px 32px 36px; display: flex; flex-direction: column; }
+.opt__no {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
+  letter-spacing: .1em; color: var(--ink-400);
+}
+.opt__txt h2 { margin: 13px 0 0; }
+.opt__txt .sub { font-size: 13px; color: var(--ink-500); margin-top: 7px; }
+.opt__txt p { margin: 18px 0 0; font-size: 14px; line-height: 1.72; color: var(--ink-600); }
+
+.opt__point {
+  margin-top: 20px; padding: 13px 15px; border-radius: 11px;
+  background: var(--blue-50); border: 1px solid var(--blue-100);
+  font-size: 12.5px; line-height: 1.66; color: var(--blue-900);
+}
+.opt__point b { color: var(--blue-700); }
+
+.opt__tags { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 20px; }
+.opt__tags span {
+  font-size: 11px; font-weight: 650; padding: 3px 9px; border-radius: 6px;
+  background: var(--ink-100); color: var(--ink-600);
+}
+.opt__acts { margin-top: auto; padding-top: 26px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* 缩放 iframe 预览：整页按比例缩到卡片里，指针事件交给外层链接 */
+.shot {
+  position: relative; overflow: hidden; background: #EEF3FB;
+  border-left: 1px solid rgba(16, 24, 40, .06);
+  min-height: 372px;
+}
+.shot iframe {
+  position: absolute; left: 0; top: 0;
+  width: 1440px; height: 900px; border: 0;
+  transform: scale(.4167); transform-origin: 0 0;
+  pointer-events: none;
+}
+.shot:after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 62%, rgba(238, 243, 251, .9));
+  pointer-events: none;
+}
+.shot__badge {
+  position: absolute; right: 14px; top: 14px; z-index: 3;
+  font-size: 11px; font-weight: 700; color: var(--ink-600);
+  background: rgba(255, 255, 255, .94); border: 1px solid rgba(16, 24, 40, .07);
+  border-radius: 7px; padding: 4px 10px;
+  box-shadow: 0 6px 16px -10px rgba(20, 22, 40, .4);
+}
+
+/* 选型建议 */
+.pick { margin-top: 64px; }
+.pick table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.pick th, .pick td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--ink-100); }
+.pick thead th { font-size: 12px; font-weight: 700; color: var(--ink-500); background: rgba(250, 251, 252, .9); }
+.pick tbody tr:last-child td { border-bottom: none; }
+.pick td:first-child { font-weight: 600; color: var(--ink-800); }
+.pick .rec { color: var(--green-800); font-weight: 650; }
+
+/* 文件清单 */
+.files { margin-top: 56px; }
+.files ul { margin: 20px 0 0; padding: 0; list-style: none; display: grid; gap: 9px; }
+.files li {
+  display: flex; align-items: baseline; gap: 12px;
+  font-size: 13px; color: var(--ink-600);
+  padding: 11px 15px; border-radius: 10px;
+  background: rgba(255, 255, 255, .7); border: 1px solid rgba(255, 255, 255, .85);
+}
+.files code { font-family: var(--font-mono); font-size: 12px; color: var(--blue-700); font-weight: 600; flex: 0 0 auto; }
+.files li span { margin-left: auto; text-align: right; }
+
+@media (max-width: 1080px) {
+  .opt { grid-template-columns: minmax(0, 1fr); }
+  .shot { border-left: none; border-top: 1px solid rgba(16, 24, 40, .06); min-height: 300px; }
+  .shot iframe { transform: scale(.34); }
+}
+@media (max-width: 680px) {
+  .shot iframe { transform: scale(.24); }
+  .pick { overflow-x: auto; }
+  .pick table { min-width: 620px; }
+}
+</style>
+</head>
+<body>
+<div class="page-bg"></div>
+
+<div class="wrap head">
+  <span class="eyebrow reveal"><i></i>官网首页 · 交互方案</span>
+  <h1 class="h-display reveal" style="font-size:clamp(32px,4.4vw,54px)">四版首页交互方案</h1>
+  <p class="lead reveal">
+    都基于产品的真实界面做的 —— 面板部分不是截图，是用 iFolo 自己的设计令牌复刻的可交互组件
+    （<code class="mono">assets/panel.css</code> + <code class="mono">panel.js</code>）。
+    各版的差别在<b>交互概念</b>，不在视觉风格。<br>
+    <b>方案 04 是在方案 01 基础上改的</b>：去掉有 AI 味的彩色光晕背景，首屏中央放一台模拟的
+    macOS 桌面（含动态壁纸），并补上暗色模式与 H5。
+  </p>
+  <div class="meta reveal">
+    <span><i></i>界面复刻自真机 v0.1.0</span>
+    <span><i></i>色彩令牌取自 logo 三原色</span>
+    <span><i></i>纯静态，无构建依赖</span>
+    <span><i></i>含 prefers-reduced-motion 回退</span>
+    <span><i></i>暗色模式 · H5</span>
+  </div>
+</div>
+
+<div class="wrap grid">
+
+  <!-- 方案四 · 基于方案一 -->
+  <article class="opt reveal">
+    <div class="opt__txt">
+      <div class="opt__no">方案 04 · 基于方案一</div>
+      <h2 class="h-2">桌面模拟版</h2>
+      <div class="sub">首屏中央是一台真的 Mac 屏幕</div>
+      <p>
+        以方案一为父本改的。首屏中央放一台模拟的 macOS 屏幕——菜单栏、Dock、
+        动态壁纸按真机比例做，壁纸随真实时间在黎明 / 白天 / 黄昏 / 夜晚之间切换。
+        产品交互就发生在这块屏幕里。
+      </p>
+      <div class="opt__point">
+        <b>改掉的三件事：</b>① 背景去 AI 味——原来三色光晕的 mesh 渐变换成单一场景的动态壁纸，
+        页面主体回到报告那套扁平画布；② 暗色模式整站 + 面板 + 壁纸联动；
+        ③ H5——窄屏下屏幕改竖版、面板占满屏宽、Dock 与热区隐藏。
+      </div>
+      <div class="opt__tags">
+        <span>动态桌面壁纸</span><span>暗色模式</span><span>H5</span><span>导航保留</span>
+      </div>
+      <div class="opt__acts">
+        <a class="btn btn--primary btn--sm" href="./v4-desktop.html">打开方案 04</a>
+      </div>
+    </div>
+    <a class="shot" href="./v4-desktop.html" aria-label="预览方案四">
+      <span class="shot__badge">墙纸随真实时间变</span>
+      <iframe src="./v4-desktop.html" loading="lazy" tabindex="-1" title="方案四预览"></iframe>
+    </a>
+  </article>
+
+  <!-- 方案一 -->
+  <article class="opt reveal">
+    <div class="opt__txt">
+      <div class="opt__no">方案 01</div>
+      <h2 class="h-2">边缘触发式</h2>
+      <div class="sub">首页就是产品本身</div>
+      <p>
+        面板藏在屏幕右边缘，只露出 10px 的把手。指针碰上去，它按真机的
+        320ms 曲线滑出——访客不用读一句文案，手一动就懂了产品是什么。
+      </p>
+      <div class="opt__point">
+        <b>最强的一点：</b>把产品的核心交互直接做成首页的第一动作。
+        这在整个品类里都没人这么做过，而且完全不需要解释。
+      </div>
+      <div class="opt__tags">
+        <span>碰边缘滑出</span><span>滚动切换面板视图</span><span>桌面两扇窗</span>
+      </div>
+      <div class="opt__acts">
+        <a class="btn btn--primary btn--sm" href="./v1-edge.html">打开方案 01</a>
+      </div>
+    </div>
+    <a class="shot" href="./v1-edge.html" aria-label="预览方案一">
+      <span class="shot__badge">把指针移到右边缘</span>
+      <iframe src="./v1-edge.html" loading="lazy" tabindex="-1" title="方案一预览"></iframe>
+    </a>
+  </article>
+
+  <!-- 方案二 -->
+  <article class="opt reveal">
+    <div class="opt__txt">
+      <div class="opt__no">方案 02</div>
+      <h2 class="h-2">滚动叙事式</h2>
+      <div class="sub">把产品当一件实物来展示</div>
+      <p>
+        首屏用 3D 透视把面板立起来，随滚动逐渐扶正。功能章节不用整张界面，
+        而是放大裁切到某个局部——工具栏、状态胶囊、命令面板、搜索框。
+      </p>
+      <div class="opt__point">
+        <b>最强的一点：</b>放大裁切让访客看到「平时看不清的地方」。
+        细节本身就构成说服力，而且这版信息量最大，能一次讲完对比表与设计体系。
+      </div>
+      <div class="opt__tags">
+        <span>3D 透视扶正</span><span>放大裁切细节</span><span>横向对比表</span><span>色彩体系</span>
+      </div>
+      <div class="opt__acts">
+        <a class="btn btn--primary btn--sm" href="./v2-scroll.html">打开方案 02</a>
+      </div>
+    </div>
+    <a class="shot" href="./v2-scroll.html" aria-label="预览方案二">
+      <span class="shot__badge">向下滚动看分镜</span>
+      <iframe src="./v2-scroll.html" loading="lazy" tabindex="-1" title="方案二预览"></iframe>
+    </a>
+  </article>
+
+  <!-- 方案三 -->
+  <article class="opt reveal">
+    <div class="opt__txt">
+      <div class="opt__no">方案 03</div>
+      <h2 class="h-2">可交互演示式</h2>
+      <div class="sub">不用下载，先点一遍</div>
+      <p>
+        面板居中，右侧六条编号注释可以悬停——面板里对应的区域会亮起高亮环，
+        左侧同步给出说明。面板是真能点的，键盘也是真的通的。
+      </p>
+      <div class="opt__point">
+        <b>最强的一点：</b>访客在官网上就能按 ⌘K、切列表、进搜索，
+        不用先下载才能体会。转化路径最短。
+      </div>
+      <div class="opt__tags">
+        <span>编号注释高亮</span><span>真实键盘输入</span><span>点键帽即触发</span>
+      </div>
+      <div class="opt__acts">
+        <a class="btn btn--primary btn--sm" href="./v3-live.html">打开方案 03</a>
+      </div>
+    </div>
+    <a class="shot" href="./v3-live.html" aria-label="预览方案三">
+      <span class="shot__badge">悬停注释 / 按 ⌘K</span>
+      <iframe src="./v3-live.html" loading="lazy" tabindex="-1" title="方案三预览"></iframe>
+    </a>
+  </article>
+</div>
+
+<div class="wrap" style="margin-top:66px">
+  <div class="card reveal" style="padding:30px 32px 32px; display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:36px; align-items:center">
+    <div>
+      <span class="eyebrow"><i></i>附加 · 面板头部设计探索（三页）</span>
+      <h2 class="h-2" style="margin:14px 0 0">面板有两个头部，问题各不相同</h2>
+      <p class="lead" style="margin-top:14px; font-size:15px">
+        <b>编辑页</b>头部是 5 行堆叠、172px，占面板 19%——问题是「太高」。
+        <b>列表页</b>头部只有 2 行 / 76px——问题是「搜索重复了两次、列表没有结构」。<br>
+        三页分别处理：编辑页做减行、编辑页换范式、列表页重做。
+      </p>
+      <div style="display:flex; gap:10px; margin-top:22px; flex-wrap:wrap">
+        <a class="btn btn--primary btn--sm" href="./v7-list.html">列表页头部（6 种）</a>
+        <a class="btn btn--ghost btn--sm" href="./v6-radical.html">编辑页 · 换范式</a>
+        <a class="btn btn--ghost btn--sm" href="./v5-headers.html">编辑页 · 减行</a>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:7px">
+      <div style="font-size:10.5px;font-weight:750;color:var(--ink-400);letter-spacing:.06em">列表页 · 重做</div>
+      <div style="display:flex; gap:9px; font-size:12.5px; color:var(--ink-600)"><b style="color:var(--accent);font-family:var(--font-mono)">①</b>搜索即头部 · 消除重复</div>
+      <div style="display:flex; gap:9px; font-size:12.5px; color:var(--ink-600)"><b style="color:var(--accent);font-family:var(--font-mono)">②</b>单行 + 时间分组 · 列表有结构</div>
+      <div style="display:flex; gap:9px; font-size:12.5px; color:var(--ink-600)"><b style="color:var(--accent);font-family:var(--font-mono)">③</b>抽屉筛选 · 低频变按需</div>
+      <div style="display:flex; gap:9px; font-size:12.5px; color:var(--ink-600)"><b style="color:var(--accent);font-family:var(--font-mono)">④</b>侧栏优先 · 补齐入口</div>
+      <div style="display:flex; gap:9px; font-size:12.5px; color:var(--ink-600)"><b style="color:var(--accent);font-family:var(--font-mono)">⑤</b>浮岛列表 · 常驻 0px</div>
+      <div style="display:flex; gap:9px; font-size:12.5px; color:var(--ink-600)"><b style="color:var(--accent);font-family:var(--font-mono)">⑥</b>时间轴 · 常驻 0px</div>
+      <div style="font-size:10.5px;font-weight:750;color:var(--ink-400);letter-spacing:.06em;margin-top:8px">编辑页 · 换范式</div>
+      <div style="display:flex; gap:9px; font-size:12.5px; color:var(--ink-600)"><b style="color:var(--ink-400);font-family:var(--font-mono)">①</b>命令行 · ② 浮岛 · ③ 径向</div>
+      <div style="display:flex; gap:9px; font-size:12.5px; color:var(--ink-600)"><b style="color:var(--ink-400);font-family:var(--font-mono)">④</b>状态机单行 · ⑤ 侧栏 · ⑥ 文档即界面</div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap pick">
+  <h2 class="h-2 reveal">怎么选</h2>
+  <div class="card reveal" style="overflow:hidden; margin-top:20px">
+    <table>
+      <thead>
+        <tr><th>如果你的目标是</th><th>选</th><th>理由</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>现在就上线，要一版能直接用的</td>
+          <td class="rec">方案 04</td>
+          <td>方案一的成品化版本：去掉了 AI 味背景，有暗色模式与 H5，首屏有动态桌面。可直接接文案与下载链接。</td>
+        </tr>
+        <tr>
+          <td>让访客 3 秒记住「这是什么」</td>
+          <td class="rec">方案 01</td>
+          <td>交互即解释，不需要任何文字说明。适合冷启动、没有品牌认知的阶段。</td>
+        </tr>
+        <tr>
+          <td>讲清「为什么不是又一个笔记应用」</td>
+          <td class="rec">方案 02</td>
+          <td>信息容量最大，能容纳对比表与设计体系。适合已经有人知道你在做什么、需要说服的阶段。</td>
+        </tr>
+        <tr>
+          <td>把访客变成用户</td>
+          <td class="rec">方案 03</td>
+          <td>上手成本为零，按一下就懂了。适合投放落地页、Product Hunt 发布页。</td>
+        </tr>
+        <tr>
+          <td>不确定</td>
+          <td>01 + 03</td>
+          <td>首屏用 01 的碰边缘滑出，滚下来用 03 的可交互演示。两者共用同一块面板组件，实现成本低。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="wrap files">
+  <h2 class="h-2 reveal">文件清单</h2>
+  <ul class="reveal">
+    <li><code>index.html</code><span>本页 · 方案索引与选型建议</span></li>
+    <li><code>v1-edge.html</code><span>方案一 · 边缘触发式</span></li>
+    <li><code>v2-scroll.html</code><span>方案二 · 滚动叙事式</span></li>
+    <li><code>v3-live.html</code><span>方案三 · 可交互演示式</span></li>
+    <li><code>v4-desktop.html</code><span>方案四 · 桌面模拟版（基于方案一）· 含暗色模式与 H5</span></li>
+    <li><code>v5-headers.html</code><span>附加 · 面板头部六种替代方案（含现状拆解与对照表）</span></li>
+    <li><code>v6-radical.html</code><span>附加 · 面板头部六种大重构范式（换掉「固定头部」前提）</span></li>
+    <li><code>assets/headers.css</code><span>减行方案（v5）的头部变体样式</span></li>
+    <li><code>v7-list.html</code><span>附加 · 列表页（首页）头部六种方案</span></li>
+    <li><code>assets/radical.css</code><span>大重构方案（v6）的样式</span></li>
+    <li><code>assets/list.css</code><span>列表页方案（v7）的样式</span></li>
+    <li><code>assets/tokens.css</code><span>设计令牌 · 直接取自 packages/editor/src/tokens.css</span></li>
+    <li><code>assets/panel.css</code><span>面板 UI 复刻样式（.ifp 命名空间）</span></li>
+    <li><code>assets/panel.js</code><span>面板结构与交互 · createPanel()</span></li>
+    <li><code>assets/site.css</code><span>三版共用的排版、按钮、卡片与揭示动画</span></li>
+    <li><code>assets/logo.svg</code><span>品牌标记原文件</span></li>
+  </ul>
+  <p class="small" style="margin-top:18px">
+    本地查看：<code class="mono">cd website && python3 -m http.server 8000</code>，然后打开
+    <code class="mono">http://localhost:8000</code>。
+    直接双击 <code class="mono">index.html</code> 也可以，但 <code class="mono">file://</code> 下 ES module 会被 CORS 拦掉，
+    所以请用本地服务器。
+  </p>
+</div>
+
+<script>
+const io = new IntersectionObserver((es) => {
+  es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } })
+}, { threshold: 0.08 })
+document.querySelectorAll('.reveal').forEach((n, i) => {
+  setTimeout(() => n.classList.add('in'), 50 + i * 45)
+  io.observe(n)
+})
+</script>
+</body>
+</html>

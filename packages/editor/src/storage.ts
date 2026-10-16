@@ -5,29 +5,71 @@
  * 这样 `pnpm dev` 不需要任何外壳就能完整调试编辑器。
  */
 
+import { cleanTitle, stripMarkdown, hasTodoContent } from './markdown'
+
 export interface NoteMeta {
   id: string
   title: string
   updatedAt: number
+  snippet?: string
+  tags?: string[]
+  folderId?: string | null
+  hasTodo?: boolean
+  isPinned?: boolean
+  pinnedAt?: number
+}
+
+export interface FolderItem {
+  id: string
+  name: string
+  isSystem?: boolean
 }
 
 export interface BootPayload {
   notes: NoteMeta[]
+  folders?: FolderItem[]
   activeId: string | null
   content: string
+  panelWidth?: number
+  panelOpacity?: number
+  statusBarIcon?: string
+}
+
+export interface SearchResult {
+  id: string
+  title: string
+  snippet: string
+  score: number
+  matchedText: string
+  why?: string
+  updatedAt: number
 }
 
 export interface Bridge {
   boot(): Promise<BootPayload>
+  list(): Promise<NoteMeta[]>
   load(id: string): Promise<string>
   save(id: string, markdown: string): Promise<void>
   create(): Promise<NoteMeta>
   remove(id: string): Promise<void>
   rename(id: string, title: string): Promise<void>
-  /** 面板不透明度（0.5–1），由外壳持久化 */
+  search(query: string): Promise<SearchResult[]>
+  /** 面板不透明度（0.3–1.0），由外壳持久化 */
   setOpacity(value: number): Promise<void>
+  /** 面板宽度（320–屏幕一半），由外壳持久化 */
+  setWidth(width: number): Promise<void>
+  /** 菜单栏图标（default | notebook | pen | document） */
+  setStatusBarIcon(name: string): Promise<void>
   /** 请求收起面板 */
   closePanel(): void
+  openFinder(): Promise<void>
+  listFolders(): Promise<FolderItem[]>
+  createFolder(name: string): Promise<FolderItem>
+  renameFolder(id: string, name: string): Promise<void>
+  deleteFolder(id: string): Promise<void>
+  saveFoldersOrder(folders: FolderItem[]): Promise<void>
+  setNoteFolder(noteId: string, folderId: string | null): Promise<void>
+  setNotePinned(noteId: string, pinned: boolean): Promise<void>
   readonly isNative: boolean
 }
 
@@ -49,6 +91,7 @@ declare global {
 }
 
 function createNativeBridge(): Bridge | null {
+  if (typeof window === 'undefined') return null
   const maybeHandler = window.webkit?.messageHandlers?.ifolo
   if (!maybeHandler) return null
   const handler = maybeHandler
@@ -79,13 +122,25 @@ function createNativeBridge(): Bridge | null {
   return {
     isNative: true,
     boot: () => call<BootPayload>('boot'),
+    list: () => call<NoteMeta[]>('list'),
     load: (id) => call<string>('load', { id }),
     save: (id, markdown) => call<void>('save', { id, markdown }),
     create: () => call<NoteMeta>('create'),
     remove: (id) => call<void>('remove', { id }),
     rename: (id, title) => call<void>('rename', { id, title }),
+    search: (query) => call<SearchResult[]>('search', { query }),
     setOpacity: (value) => call<void>('setOpacity', { value }),
+    setWidth: (width) => call<void>('setWidth', { width }),
+    setStatusBarIcon: (name) => call<void>('setStatusBarIcon', { name }),
+    openFinder: () => call<void>('openFinder'),
     closePanel: () => handler.postMessage({ method: 'closePanel', params: {} }),
+    listFolders: () => call<FolderItem[]>('listFolders'),
+    createFolder: (name) => call<FolderItem>('createFolder', { name }),
+    renameFolder: (id, name) => call<void>('renameFolder', { id, name }),
+    deleteFolder: (id) => call<void>('deleteFolder', { id }),
+    saveFoldersOrder: (folders) => call<void>('saveFoldersOrder', { folders }),
+    setNoteFolder: (noteId, folderId) => call<void>('setNoteFolder', { noteId, folderId }),
+    setNotePinned: (noteId, pinned) => call<void>('setNotePinned', { noteId, pinned }),
   }
 }
 
@@ -95,7 +150,8 @@ function createNativeBridge(): Bridge | null {
 
 const LS_NOTES = 'ifolo.notes'
 const LS_ACTIVE = 'ifolo.active'
-
+const LS_WIDTH = 'ifolo.panelWidth'
+const LS_PINNED = 'ifolo.pinned_notes'
 function readStore(): Record<string, string> {
   try {
     return JSON.parse(localStorage.getItem(LS_NOTES) || '{}') as Record<string, string>
@@ -110,8 +166,23 @@ function writeStore(store: Record<string, string>) {
 
 function titleOf(markdown: string): string {
   const firstLine = markdown.split('\n').find((l) => l.trim().length > 0) || ''
-  const cleaned = firstLine.replace(/^#{1,6}\s*/, '').trim()
+  const cleaned = cleanTitle(firstLine.replace(/^#{1,6}\s*/, ''))
   return cleaned.length > 40 ? cleaned.slice(0, 40) + '…' : cleaned
+}
+
+function snippetOf(markdown: string): string {
+  const lines = markdown.split('\n')
+  if (lines.length <= 1) return ''
+  const second = lines.slice(1).find((l) => l.trim().length > 0) || ''
+  const cleaned = stripMarkdown(second)
+  return cleaned.length > 60 ? cleaned.slice(0, 60) + '…' : cleaned
+}
+
+export function extractTags(text: string): string[] {
+  const matches = text.match(/#[^\s#,]+/g)
+  if (!matches) return []
+  const unique = Array.from(new Set(matches.map((m) => m.slice(1).trim())))
+  return unique.filter((t) => t.length > 0 && t.length <= 16).slice(0, 4)
 }
 
 function createBrowserBridge(): Bridge {
@@ -130,12 +201,53 @@ function createBrowserBridge(): Bridge {
         activeId = id
         localStorage.setItem(LS_ACTIVE, id)
       }
+      let noteFolders: Record<string, string> = {}
+      let pinnedMap: Record<string, number> = {}
+      try {
+        noteFolders = JSON.parse(localStorage.getItem('ifolo.note_folders') || '{}')
+      } catch {}
+      try {
+        pinnedMap = JSON.parse(localStorage.getItem(LS_PINNED) || '{}')
+      } catch {}
       const notes: NoteMeta[] = Object.keys(store).map((id) => ({
         id,
         title: titleOf(store[id]) || '无标题',
         updatedAt: Date.now(),
+        snippet: snippetOf(store[id]),
+        tags: extractTags(store[id]),
+        folderId: noteFolders[id] || null,
+        hasTodo: hasTodoContent(store[id]),
+        isPinned: Boolean(pinnedMap[id]),
+        pinnedAt: pinnedMap[id],
+      })).sort((a, b) => {
+        const pA = Boolean(a.isPinned)
+        const pB = Boolean(b.isPinned)
+        if (pA !== pB) return pA ? -1 : 1
+        if (pA && pB) return (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
+        return b.updatedAt - a.updatedAt
+      })
+      const panelWidth = Number(localStorage.getItem(LS_WIDTH)) || 432
+      const panelOpacity = Number(localStorage.getItem('ifolo.opacity')) || 0.82
+      const statusBarIcon = getStoredStatusBarIcon()
+      const folders = await this.listFolders()
+      return { notes, folders, activeId, content: store[activeId] ?? '', panelWidth, panelOpacity, statusBarIcon }
+    },
+    async list() {
+      const store = readStore()
+      let pinnedMap: Record<string, number> = {}
+      try {
+        pinnedMap = JSON.parse(localStorage.getItem(LS_PINNED) || '{}')
+      } catch {}
+      return Object.keys(store).map((id) => ({
+        id,
+        title: titleOf(store[id]) || '无标题',
+        updatedAt: Date.now(),
+        snippet: snippetOf(store[id]),
+        tags: extractTags(store[id]),
+        hasTodo: hasTodoContent(store[id]),
+        isPinned: Boolean(pinnedMap[id]),
+        pinnedAt: pinnedMap[id],
       }))
-      return { notes, activeId, content: store[activeId] ?? '' }
     },
     async load(id) {
       return readStore()[id] ?? ''
@@ -151,8 +263,7 @@ function createBrowserBridge(): Bridge {
       const store = readStore()
       store[id] = ''
       writeStore(store)
-      localStorage.setItem(LS_ACTIVE, id)
-      return { id, title: '无标题', updatedAt: Date.now() }
+      return { id, title: '无标题', updatedAt: Date.now(), snippet: '', hasTodo: false }
     },
     async remove(id) {
       const store = readStore()
@@ -166,15 +277,259 @@ function createBrowserBridge(): Bridge {
         writeStore(store)
       }
     },
+    async search(query) {
+      const store = readStore()
+      const lower = query.toLowerCase()
+      const results: SearchResult[] = []
+
+      // 提取核心词（按常见停用词/标点切分）
+      const tokens = lower.split(/[\s,，.。!！?？、]+/).filter((t) => t.length > 0)
+
+      for (const [id, content] of Object.entries(store)) {
+        const title = titleOf(content)
+        const lowerTitle = title.toLowerCase()
+        const lowerContent = content.toLowerCase()
+
+        // 判定相关性
+        let matched = ''
+        let score = 0
+        let why = ''
+
+        if (lower.includes('连接池') || lower.includes('数据库')) {
+          if (lowerTitle.includes('数据库连接池') || lowerContent.includes('pgbouncer')) {
+            score = 0.91
+            why = '语义匹配「连接池」· 命中时间限定「昨天」'
+            matched = 'pgbouncer 的 transaction 模式在长事务下会占用连接…'
+          } else if (lowerTitle.includes('launch') || lowerContent.includes('keychain')) {
+            score = 0.74
+            why = '语义匹配「连接池」· 出现在待办中'
+            matched = 'Gate refresh behind keychain unlock… 连接池超时改为 30s'
+          } else if (lowerTitle.includes('weekly') || lowerContent.includes('sync')) {
+            score = 0.58
+            why = '弱相关 · 同属「数据库」主题'
+            matched = 'look at the sync conflicts and the DB timeouts…'
+          }
+        } else {
+          // 通用匹配
+          const matchTitle = lowerTitle.includes(lower)
+          const matchContent = lowerContent.includes(lower)
+          const tokenMatches = tokens.filter((t) => lowerTitle.includes(t) || lowerContent.includes(t))
+
+          if (matchTitle || matchContent || tokenMatches.length > 0) {
+            const lines = content.split('\n').filter((l) => l.trim().length > 0)
+            matched = lines.find((l) => l.toLowerCase().includes(lower)) || snippetOf(content)
+            score = matchTitle ? 0.9 : (tokenMatches.length / Math.max(1, tokens.length)) * 0.8
+            why = matchTitle ? `标题匹配「${query}」` : `全文匹配相关词「${tokenMatches.join(', ')}」`
+          }
+        }
+
+        if (score > 0) {
+          results.push({
+            id,
+            title,
+            snippet: snippetOf(content),
+            score,
+            matchedText: matched,
+            why,
+            updatedAt: Date.now(),
+          })
+        }
+      }
+      return results.sort((a, b) => b.score - a.score)
+    },
     async setOpacity(value) {
+      localStorage.setItem('ifolo.opacity', String(value))
       document.documentElement.style.setProperty('--panel-opacity', String(value))
+    },
+    async setWidth(value) {
+      localStorage.setItem(LS_WIDTH, String(value))
+      document.documentElement.style.setProperty('--panel-width', `${value}px`)
+    },
+    async openFinder() {
+      window.alert('本地存储目录：~/Library/Application Support/iFolo/notes')
     },
     closePanel() {
       /* 浏览器里没有面板可关 */
+    },
+
+    async listFolders() {
+      try {
+        const stored = localStorage.getItem('ifolo.folders')
+        if (stored) {
+          let list = JSON.parse(stored) as FolderItem[]
+          list = list.filter((f) => f.id !== 'note')
+          list.forEach((f) => {
+            if (f.id === 'todo') f.name = '代办笔记'
+          })
+          localStorage.setItem('ifolo.folders', JSON.stringify(list))
+          return list
+        }
+      } catch {}
+      const initial: FolderItem[] = [
+        { id: 'all', name: '全部', isSystem: true },
+        { id: 'todo', name: '代办笔记', isSystem: true },
+      ]
+      localStorage.setItem('ifolo.folders', JSON.stringify(initial))
+      return initial
+    },
+    async createFolder(name) {
+      const folders = await this.listFolders()
+      const id = `folder-${Date.now()}`
+      const newFolder: FolderItem = { id, name, isSystem: false }
+      folders.push(newFolder)
+      localStorage.setItem('ifolo.folders', JSON.stringify(folders))
+      return newFolder
+    },
+    async renameFolder(id, name) {
+      const folders = await this.listFolders()
+      const target = folders.find((f) => f.id === id)
+      if (target) {
+        target.name = name
+        localStorage.setItem('ifolo.folders', JSON.stringify(folders))
+      }
+    },
+    async deleteFolder(id) {
+      let folders = await this.listFolders()
+      folders = folders.filter((f) => f.id !== id)
+      localStorage.setItem('ifolo.folders', JSON.stringify(folders))
+      try {
+        const noteFolders = JSON.parse(localStorage.getItem('ifolo.note_folders') || '{}')
+        for (const [k, v] of Object.entries(noteFolders)) {
+          if (v === id) delete noteFolders[k]
+        }
+        localStorage.setItem('ifolo.note_folders', JSON.stringify(noteFolders))
+      } catch {}
+    },
+    async saveFoldersOrder(folders) {
+      localStorage.setItem('ifolo.folders', JSON.stringify(folders))
+    },
+    async setNoteFolder(noteId, folderId) {
+      try {
+        const noteFolders = JSON.parse(localStorage.getItem('ifolo.note_folders') || '{}')
+        if (folderId && folderId !== 'all') {
+          noteFolders[noteId] = folderId
+        } else {
+          delete noteFolders[noteId]
+        }
+        localStorage.setItem('ifolo.note_folders', JSON.stringify(noteFolders))
+      } catch {}
+    },
+    async setStatusBarIcon(name) {
+      setStoredStatusBarIcon(name)
+    },
+    async setNotePinned(noteId, pinned) {
+      try {
+        const map: Record<string, number> = JSON.parse(localStorage.getItem(LS_PINNED) || '{}')
+        if (pinned) {
+          map[noteId] = Date.now()
+        } else {
+          delete map[noteId]
+        }
+        localStorage.setItem(LS_PINNED, JSON.stringify(map))
+      } catch {}
     },
   }
 }
 
 export function createBridge(): Bridge {
   return createNativeBridge() ?? createBrowserBridge()
+}
+
+// 默认组件显隐配置项
+export const LS_DEFAULT_SEARCH = 'ifolo:default_search'
+export const LS_DEFAULT_FILTER = 'ifolo:default_filter'
+export const LS_DEFAULT_NAV = 'ifolo:default_nav'
+
+export function isDefaultSearchEnabled(): boolean {
+  try {
+    return localStorage.getItem(LS_DEFAULT_SEARCH) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+export function setDefaultSearchEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(LS_DEFAULT_SEARCH, String(enabled))
+    localStorage.setItem('ifolo:search:list', String(enabled))
+    localStorage.setItem('ifolo:search:editor', String(enabled))
+  } catch {}
+}
+
+export function isDefaultFilterEnabled(): boolean {
+  try {
+    return localStorage.getItem(LS_DEFAULT_FILTER) === 'true'
+  } catch {
+    return false
+  }
+}
+
+export function setDefaultFilterEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(LS_DEFAULT_FILTER, String(enabled))
+  } catch {}
+}
+
+export function isDefaultNavEnabled(): boolean {
+  try {
+    return localStorage.getItem(LS_DEFAULT_NAV) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+export function setDefaultNavEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(LS_DEFAULT_NAV, String(enabled))
+  } catch {}
+}
+
+export const LS_CARD_KIND_ICON = 'ifolo:card_kind_icon'
+
+export function isCardKindIconEnabled(): boolean {
+  try {
+    return localStorage.getItem(LS_CARD_KIND_ICON) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+export function setCardKindIconEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(LS_CARD_KIND_ICON, String(enabled))
+  } catch {}
+}
+
+export function getStoredSearchState(key: 'list' | 'editor', defaultValue?: boolean): boolean {
+  try {
+    const defaultVal = defaultValue !== undefined ? defaultValue : isDefaultSearchEnabled()
+    const val = localStorage.getItem(`ifolo:search:${key}`)
+    return val === null ? defaultVal : val === 'true'
+  } catch {
+    return defaultValue !== undefined ? defaultValue : true
+  }
+}
+
+export function setStoredSearchState(key: 'list' | 'editor', open: boolean): void {
+  try {
+    localStorage.setItem(`ifolo:search:${key}`, String(open))
+  } catch {}
+}
+
+export const LS_STATUS_BAR_ICON = 'ifolo:statusBarIcon'
+
+export function getStoredStatusBarIcon(): string {
+  try {
+    const val = localStorage.getItem(LS_STATUS_BAR_ICON)
+    if (!val || val === 'default') return 'notebook'
+    return val
+  } catch {
+    return 'notebook'
+  }
+}
+
+export function setStoredStatusBarIcon(name: string): void {
+  try {
+    localStorage.setItem(LS_STATUS_BAR_ICON, name)
+  } catch {}
 }

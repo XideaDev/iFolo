@@ -28,12 +28,37 @@ final class PanelWindow: NSPanel {
         )
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
-        level = .popUpMenu
+        hasShadow = false
+        level = .floating
         becomesKeyOnlyIfNeeded = false
         hidesOnDeactivate = false
         isMovable = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         animationBehavior = .utilityWindow
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // 处理非激活浮动面板内的标准编辑快捷键（复制、粘贴、全选、剪切、撤销）
+        if event.modifierFlags.contains(.command) {
+            let key = event.charactersIgnoringModifiers?.lowercased()
+            if key == "v" {
+                if NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: self) {
+                    return true
+                }
+            } else if key == "c" {
+                if NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self) {
+                    return true
+                }
+            } else if key == "x" {
+                if NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: self) {
+                    return true
+                }
+            } else if key == "a" {
+                if NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: self) {
+                    return true
+                }
+            }
+        }
+        return super.performKeyEquivalent(with: event)
     }
 }

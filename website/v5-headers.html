@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iFolo 面板头部 · 六种替代方案</title>
+<link rel="stylesheet" href="./assets/tokens.css">
+<link rel="stylesheet" href="./assets/panel.css">
+<link rel="stylesheet" href="./assets/headers.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; font-family: var(--font-ui); color: var(--text-primary);
+  background: var(--canvas); -webkit-font-smoothing: antialiased;
+  padding: 0 0 90px;
+}
+a { color: inherit; text-decoration: none; }
+code { font-family: var(--font-mono); font-size: .92em; background: var(--surface-sunken); padding: 1px 5px; border-radius: 5px; }
+.wrap { width: min(1180px, 100% - 48px); margin-inline: auto; }
+.page-bg {
+  position: fixed; inset: 0; z-index: -1;
+  background: radial-gradient(70% 44% at 50% -8%, rgba(92, 163, 255, .11), transparent 70%), var(--canvas);
+}
+
+.head { padding: 66px 0 0; }
+.head h1 { margin: 16px 0 0; font-size: clamp(28px, 3.6vw, 44px); font-weight: 700; letter-spacing: -.032em; line-height: 1.14; }
+.head .lead { margin: 18px 0 0; max-width: 700px; font-size: clamp(15px, 1.3vw, 17px); line-height: 1.68; color: var(--text-secondary); }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-tertiary); }
+.eyebrow i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue-500); }
+
+/* 现状拆解 */
+.diag { margin-top: 40px; display: grid; grid-template-columns: minmax(0, 1fr) 460px; gap: 40px; align-items: start; }
+.rows { display: flex; flex-direction: column; gap: 7px; }
+.rrow {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 15px; border-radius: 11px;
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-raised);
+}
+.rrow .n { font-size: 11px; font-weight: 800; color: var(--text-tertiary); font-family: var(--font-mono); width: 14px; flex: 0 0 auto; }
+.rrow .nm { font-size: 13px; font-weight: 650; flex: 0 0 auto; }
+.rrow .ds { font-size: 12px; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rrow .h { margin-left: auto; font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; color: var(--warn); flex: 0 0 auto; }
+.rrow--sum { background: var(--warn-soft); border-color: var(--orange-200); }
+.rrow--sum .nm { color: var(--warn); }
+.rrow--sum .h { color: var(--warn); }
+.diag__panel { position: sticky; top: 24px; }
+
+/* 原型网格 */
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 32px; margin-top: 46px; }
+.proto { display: flex; flex-direction: column; }
+.proto__hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.proto__no { font-family: var(--font-mono); font-size: 12px; font-weight: 800; color: var(--accent); flex: 0 0 auto; }
+.proto__nm { font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+.proto__tag {
+  margin-left: auto; font-size: 10.5px; font-weight: 750; padding: 3px 9px; border-radius: 999px;
+  background: var(--success-soft); color: var(--success); flex: 0 0 auto;
+}
+.proto__tag.warn { background: var(--warn-soft); color: var(--warn); }
+.proto__ds { font-size: 13px; line-height: 1.62; color: var(--text-secondary); margin: 0 0 16px; min-height: 42px; }
+.proto__stage { display: flex; justify-content: center; }
+.proto__ft { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.pf { display: flex; gap: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-secondary); }
+.pf b { flex: 0 0 auto; font-size: 10px; font-weight: 800; padding: 3px 7px; border-radius: 5px; height: 18px; display: inline-flex; align-items: center; }
+.pf b.g { background: var(--success-soft); color: var(--success); }
+.pf b.o { background: var(--warn-soft); color: var(--warn); }
+.pf b.n { background: var(--surface-sunken); color: var(--text-secondary); }
+
+/* 对照表 */
+.cmp { margin-top: 70px; }
+.cmp table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-raised); }
+.cmp th, .cmp td { padding: 13px 15px; text-align: left; border-bottom: 1px solid var(--border-subtle); }
+.cmp thead th { font-size: 11.5px; font-weight: 700; color: var(--text-tertiary); background: var(--surface-sunken); }
+.cmp tbody tr:last-child td { border-bottom: none; }
+.cmp td:first-child { font-weight: 650; white-space: nowrap; }
+.cmp .num { font-family: var(--font-mono); font-weight: 700; }
+.cmp .best { color: var(--success); font-weight: 700; }
+.cmp .cur td { background: var(--warn-soft); }
+.cmp .cur td:first-child { color: var(--warn); }
+.cmp .rec { background: var(--accent-subtle); }
+
+.foot { margin-top: 60px; padding-top: 30px; border-top: 1px solid var(--border-subtle); font-size: 13px; color: var(--text-tertiary); }
+
+@media (max-width: 1120px) {
+  .diag { grid-template-columns: minmax(0, 1fr); }
+  .diag__panel { position: static; display: flex; justify-content: center; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .cmp { overflow-x: auto; }
+  .cmp table { min-width: 760px; }
+}
+</style>
+</head>
+<body>
+<div class="page-bg"></div>
+
+<div class="wrap head">
+  <span class="eyebrow"><i></i>面板头部 · 设计探索</span>
+  <h1>头部占了面板的 19%</h1>
+  <p class="lead">
+    编辑器模式下头部是 <b>5 行堆叠、172px</b>。在「轻量快速」这个前提下，这个比例偏高——
+    而且其中至少两行是低频信息（文档内查找、面包屑）。下面六种方案都在回答同一个问题：
+    <b>哪些行必须常驻，哪些可以按需出现。</b>
+  </p>
+</div>
+
+<div class="wrap diag">
+  <div class="rows" id="diagRows"></div>
+  <div class="diag__panel"><div id="baseline"></div></div>
+</div>
+
+<div class="wrap">
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="wrap cmp">
+  <h2 style="margin:0 0 18px;font-size:20px;font-weight:700;letter-spacing:-.02em">横向对照</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:130px">方案</th>
+        <th style="width:88px">头部高度</th>
+        <th style="width:88px">省下</th>
+        <th>最大的好处</th>
+        <th>代价 / 风险</th>
+      </tr>
+    </thead>
+    <tbody id="cmpBody"></tbody>
+  </table>
+</div>
+
+<div class="wrap foot">
+  面板宽度按真机 448px 复刻；高度标注含边框内所有常驻头部行，不含状态栏（26px）与正文。
+  当前实现的基准见 <code>packages/editor/src/ui/</code>。
+</div>
+
+<script type="module">
+import { LOGO } from './assets/panel.js'
+
+/* ---------- 图标 ---------- */
+const S = (p, extra = '') => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" ${extra}>${p}</svg>`
+const I = {
+  search: S('<circle cx="7" cy="7" r="4.3"/><path d="M10.3 10.3 14 14"/>'),
+  dots: S('<circle cx="3.6" cy="8" r="1.15" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.15" fill="currentColor" stroke="none"/><circle cx="12.4" cy="8" r="1.15" fill="currentColor" stroke="none"/>', 'stroke="none"'),
+  plus: S('<path d="M8 3.4v9.2M3.4 8h9.2"/>', 'stroke-width="2"'),
+  filter: S('<path d="M2.6 4.4h10.8M4.6 8h6.8M6.6 11.6h2.8"/>'),
+  link: S('<path d="M6.6 9.4a2.6 2.6 0 0 0 3.7 0l2-2a2.6 2.6 0 0 0-3.7-3.7l-.7.7"/><path d="M9.4 6.6a2.6 2.6 0 0 0-3.7 0l-2 2a2.6 2.6 0 0 0 3.7 3.7l.7-.7"/>', 'stroke-width="1.6"'),
+  color: S('<path d="M3.6 10.4 7 3.6l3.4 6.8M4.6 8.4h4.8"/><path d="M3 13.6h10" stroke-width="2.2"/>', 'stroke-width="1.6"'),
+  hl: S('<path d="M3 13.6h10"/><path d="M6.2 9.4 4.4 11.2l1.8 1.8 1.8-1.8z" fill="currentColor" stroke-linejoin="round"/><path d="M8.6 5.6 11.4 2.8l1.8 1.8-2.8 2.8"/>', 'stroke-width="1.6"'),
+  emo: S('<circle cx="8" cy="8" r="5.6"/><path d="M5.9 9.3a2.6 2.6 0 0 0 4.2 0"/><circle cx="6.2" cy="6.4" r=".7" fill="currentColor" stroke="none"/><circle cx="9.8" cy="6.4" r=".7" fill="currentColor" stroke="none"/>', 'stroke-width="1.6"'),
+  tabs: S('<rect x="2.6" y="4.4" width="7.2" height="7.2" rx="1.6"/><path d="M6.4 4.4V2.6h7v7h-1.8"/>', 'stroke-width="1.6"'),
+  doc: S('<path d="M4 2.6h5.4L13 6.2v7.2H4z"/><path d="M9.2 2.6v3.8H13"/>'),
+  bolt: S('<path d="M9 2.2 4.4 8.9h3.2l-.6 4.9 4.6-6.7H8.4z"/>', 'stroke-linejoin="round"'),
+  bell: S('<path d="M4.6 7.2a3.4 3.4 0 0 1 6.8 0v2.4l1 1.8H3.6l1-1.8z"/><path d="M6.7 12.7a1.4 1.4 0 0 0 2.6 0"/>'),
+}
+
+/* ---------- 复用零件 ---------- */
+const logo = `<span class="hd__logo">${LOGO}</span>`
+const acts = (extra = '') => `<span class="hd__acts">${extra}<span class="hd__ib">${I.search}</span><span class="hd__ib">${I.dots}</span></span>`
+const tabsHTML = (active = 1) => `<span class="hd__tabs">
+  <span class="hd__tab">同步层的重构计划<i>×</i></span>
+  <span class="hd__tab${active === 1 ? ' on' : ''}">然后根据fi…<i>×</i></span>
+  <span class="hd__tab${active === 2 ? ' on' : ''}">你好的话大海俊…<i>×</i></span>
+  <span class="hd__tab add">＋</span>
+</span>`
+const barHTML = `<div class="hd__bar">
+  <span class="hd__blk">正文 ▾</span><span class="hd__sep"></span>
+  <span class="hd__fmt b">B</span><span class="hd__fmt i">I</span><span class="hd__fmt u">U</span><span class="hd__fmt s">S</span>
+  <span class="hd__fmt mono">&lt;/&gt;</span><span class="hd__sep"></span>
+  <span class="hd__fmt">${I.link}</span><span class="hd__fmt">${I.color}</span><span class="hd__fmt">${I.hl}</span><span class="hd__fmt">${I.emo}</span>
+  <span class="hd__more">⋯</span>
+</div>`
+const findHTML = `<div class="hd__find">${I.search}<span>在当前文档中查找…（回车跳转、⌘⇧F 全局搜索）</span><span class="clr">✕</span></div>`
+const crumbHTML = `<div class="hd__crumb"><b>全部笔记</b><span class="ar">›</span><span class="cur">然后根据fi…</span><span class="hd__sub">· 已自动保存</span></div>`
+const topbarHTML = `<div class="hd__row a" style="height:36px">${logo}${acts()}</div>`
+
+/* ---------- 正文内容（与真机一致） ---------- */
+const BODY_EDITOR = `<div class="ifp__doc">
+  <h1 class="ifp__h1">为什么现在做</h1>
+  <p class="ifp__p">当前 <code>Store</code> 把附件内嵌在正文里，一条带 12 张截图的笔记轻松超过 1&nbsp;MB。参考实现把这类笔记直接跳过同步。</p>
+  <div class="ifp__todo"><span class="ifp__cb done"></span><span class="ifp__line">调研 CRDT 库（Yjs / Automerge）</span><span class="ifp__st done">已完成</span></div>
+  <div class="ifp__todo"><span class="ifp__cb"></span><span class="ifp__line">把附件抽成独立通道</span><span class="ifp__st ip">进行中</span></div>
+  <div class="ifp__todo"><span class="ifp__cb"></span><span class="ifp__line">冲突解决 UI</span><span class="ifp__st rv">审核中</span></div>
+  <div class="ifp__todo"><span class="ifp__cb"></span><span class="ifp__line">迁移脚本：把历史笔记的内嵌图片外置</span><span class="ifp__st td">待办</span></div>
+  <h2 class="ifp__h2">关键决策</h2>
+  <p class="ifp__p"><b>不引入服务端解密能力。</b>中继只存密文与操作日志，密钥永远不出设备。代价是无法做服务端全文索引，但换来了可以公开宣称的隐私承诺。</p>
+  <blockquote class="ifp__quote">如果为了做一个「搜索快一点」的功能而放弃零知识，那这个产品就不值得做。</blockquote>
+  <pre class="ifp__code"><span class="c">// 附件走独立通道，不参与 CRDT 合并</span>
+<span class="k">func</span> <span class="f">uploadAttachment</span>(_ data: Data, noteId: String)
+    <span class="k">async throws</span> -&gt; String {
+  <span class="k">let</span> key = <span class="k">try</span> Vault.shared.attachmentKey(<span class="k">for</span>: noteId)
+  <span class="k">return try await</span> Relay.shared.put(sealed.combined!)
+}</pre>
+  <h2 class="ifp__h2">待确认</h2>
+  <p class="ifp__p">选 <code>Yjs</code> 还是 <code>Automerge</code> 取决于<b>离线时长</b>的预期。需要先定一个上限：<b>离线多久算异常</b>。</p>
+</div>`
+
+const BODY_LIST = `<div class="ifp__list">
+  ${[
+    ['bolt', '无标题', '39 分钟前', '空白笔记', ''],
+    ['doc', '然后根据fi…', '42 分钟前', '空白笔记', ''],
+    ['bolt', '无标题', '46 分钟前', '空白笔记', 'on'],
+    ['doc', '同步层的重构计划', '1 小时前', '把同步拆成「正文」与「附件」两条独立通道。', ''],
+    ['doc', '你好的话大海俊杰是姐夫', '1 小时前', '放姐夫宋哥你哈觉大海 看姐夫水电', ''],
+    ['doc', '水电改水电发', '2 小时前', '放水电发大叔水电放水电发', 'tags'],
+  ].map(([k, t, tm, s, f]) => `
+    <div class="ifp__row${f === 'on' ? ' on' : ''}">
+      <div class="ifp__rt"><span class="ifp__kind ${k === 'bolt' ? 'q' : 'n'}">${I[k]}</span><b>${t}</b><span class="t">${tm}</span></div>
+      <div class="ifp__rs">${s}</div>
+      ${f === 'tags' ? `<div class="ifp__tags"><span class="ifp__tag n">等等</span><span class="ifp__tag n">333</span><span class="ifp__tag n">444</span><span class="ifp__tag g">快结婚3</span></div>` : ''}
+    </div>`).join('')}
+</div>`
+
+/* ============================================================================
+   ① 单行制
+   ========================================================================= */
+const S1 = `
+<div class="hd hd--s1">
+  <div class="hd__row a">
+    ${logo}
+    <span class="hd__crumb" style="flex:1 1 auto">
+      <b>全部笔记</b><span class="ar">›</span><span class="cur">然后根据fi…</span>
+      <span class="hd__sub">· 已保存</span>
+    </span>
+    ${acts()}
+  </div>
+  <div class="hd__row" style="height:28px">${tabsHTML()}</div>
+</div>
+<div class="float-bar">
+  <span class="hd__blk">正文 ▾</span><span class="hd__sep"></span>
+  <span class="hd__fmt b">B</span><span class="hd__fmt i">I</span><span class="hd__fmt u">U</span><span class="hd__fmt s">S</span>
+  <span class="hd__fmt mono">&lt;/&gt;</span><span class="hd__sep"></span>
+  <span class="hd__fmt">${I.link}</span><span class="hd__fmt">${I.color}</span>
+  <span class="hd__fmt">${I.hl}</span><span class="hd__fmt">${I.emo}</span>
+</div>`
+
+/* ============================================================================
+   ② 标签即导航
+   ========================================================================= */
+const S2 = `
+<div class="hd hd--s2">
+  <div class="hd__row a">
+    ${logo}
+    ${tabsHTML()}
+    ${acts()}
+  </div>
+  <div class="hd__row" style="height:34px">${barHTML}</div>
+</div>`
+
+/* ============================================================================
+   ③ 折叠头部
+   ========================================================================= */
+const S3 = `
+<div class="hd hd--s3">
+  <div class="hd__mini">
+    ${logo}<span class="hd__t">然后根据fi…</span><span class="hd__sub">已保存</span>${acts()}
+  </div>
+  <div class="hd__full">
+    <div class="hd__row a">${logo}${acts()}</div>
+    <div class="hd__row" style="height:38px;padding:0 10px">${findHTML}</div>
+    <div class="hd__row" style="height:30px">${tabsHTML()}</div>
+    <div class="hd__row" style="height:34px">${barHTML}</div>
+    <div class="hd__row" style="height:26px">${crumbHTML}</div>
+  </div>
+</div>`
+
+/* ============================================================================
+   ④ 双态互斥
+   ========================================================================= */
+const S4 = `
+<div class="hd hd--s4">
+  <div class="hd__row a">
+    ${logo}
+    <span class="hd__t">然后根据fi…</span>
+    <span class="hd__sub">· 已保存</span>
+    ${acts()}
+  </div>
+  <div class="hd__row b">
+    <span class="hd__seg">
+      <span class="on" data-seg="bar">格式</span>
+      <span data-seg="tabs">标签</span>
+    </span>
+    <span class="hd__pane on" data-pane="bar">${barHTML}</span>
+    <span class="hd__pane" data-pane="tabs">${tabsHTML()}</span>
+  </div>
+</div>`
+
+/* ============================================================================
+   ⑤ 侧栏标签
+   ========================================================================= */
+const S5_RAIL = `
+  <span class="mk">${LOGO}</span>
+  <span class="hd__tab v" title="同步层的重构计划"><i>同</i></span>
+  <span class="hd__tab v on" title="然后根据fi…"><i>然</i></span>
+  <span class="hd__tab v" title="你好的话大海俊杰是姐夫"><i>你</i></span>
+  <span class="hd__tab v" title="无标题"><i>无</i></span>
+  <span class="plus">＋</span>`
+const S5_ROWS = `
+  <div class="hd__row" style="height:36px">
+    <span class="hd__t">然后根据fi…</span>
+    <span class="hd__sub">· 已保存</span>
+    ${acts()}
+  </div>
+  <div class="hd__row" style="height:34px">${barHTML}</div>`
+
+/* ============================================================================
+   ⑥ 无头头部
+   ========================================================================= */
+const S6 = `
+<div class="hd hd--s6">
+  <div class="hd__row a">${logo}<span class="hd__t">然后根据fi…</span><span class="hd__sub">· 已保存</span>${acts()}</div>
+  <div class="hd__row b">${barHTML}</div>
+</div>
+<div class="hotbar"><span class="grip"></span></div>`
+
+/* ============================================================================
+   方案清单
+   ========================================================================= */
+const SCHEMES = [
+  {
+    no: '①', id: 's1', name: '单行制', header: S1, body: BODY_EDITOR, h: 68,
+    tag: '省 104px', tagWarn: false,
+    ds: '顶栏、面包屑、搜索合成一行；工具栏从常驻改为「选中文字时浮出」；标签条压到 28px。',
+    pros: [['g', '最大收益'], ['n', '一行解决身份与位置：品牌 + 你在哪 + 存了没']],
+    cons: [['o', '注意'], ['n', '工具栏浮出需要一次选中动作，纯键盘用户要走 ⌘B 这类快捷键']],
+    rec: true,
+    benefit: '头部只留一行，其余按需出现',
+    risk: '工具栏需要选中才出现，键盘用户要记快捷键',
+  },
+  {
+    no: '②', id: 's2', name: '标签即导航', header: S2, body: BODY_EDITOR, h: 72,
+    tag: '省 100px', tagWarn: false,
+    ds: '标签条升为唯一顶行——标签本身就是「我在哪」。面包屑与顶栏标题取消，搜索与更多收成图标。',
+    pros: [['g', '信息不重复'], ['n', '同一件事只说一遍，标签即标题']],
+    cons: [['o', '注意'], ['n', '标签多了会挤；需要横向滚动或「＋」旁边做溢出菜单']],
+    benefit: '没有重复信息，标签即标题',
+    risk: '标签一多就挤，要做溢出菜单',
+  },
+  {
+    no: '③', id: 's3', name: '折叠头部', header: S3, body: BODY_EDITOR, h: 162,
+    tag: '滚动后 30px', tagWarn: false,
+    ds: '不改结构，只改时机：停在顶部时五行全在，往下滚就收成一条 30px 迷你条。',
+    pros: [['g', '零学习成本'], ['n', '不动现有布局，只在滚动时收起']],
+    cons: [['o', '注意'], ['n', '顶部仍是 162px；折叠动画在长文档里会反复触发']],
+    benefit: '不动结构，只在滚动时收起',
+    risk: '顶部依然高，折叠动画可能干扰',
+  },
+  {
+    no: '④', id: 's4', name: '双态互斥', header: S4, body: BODY_EDITOR, h: 72,
+    tag: '省 100px', tagWarn: false,
+    ds: '工具栏与标签页共用一行，点左侧开关切换。同一时刻只有一种上下文——写的时候看格式，切的时候看标签。',
+    pros: [['g', '省一行'], ['n', '两件事本来就不会同时用，没必要都占着']],
+    cons: [['o', '注意'], ['n', '多一次切换动作；需要记住开关在哪']],
+    benefit: '工具栏与标签页本来不同时用，合并成一行',
+    risk: '多一次切换动作',
+  },
+  {
+    no: '⑤', id: 's5', name: '侧栏标签', header: S5_ROWS, rail: S5_RAIL, body: BODY_EDITOR, h: 70, vrail: true,
+    tag: '横向零占用', tagWarn: false,
+    ds: '标签移到左侧 28px 竖栏，用首字作标识。面板再窄也放得下十几个标签，且完全不占纵向空间。',
+    pros: [['g', '标签无上限'], ['n', '竖排天然可扩展，再多也只是往下排']],
+    cons: [['o', '注意'], ['n', '要改面板根结构为横向两栏；28px 里只能用首字，重名时分不清']],
+    benefit: '标签数量不再受宽度限制',
+    risk: '要改根结构；首字标识会重名',
+  },
+  {
+    no: '⑥', id: 's6', name: '无头头部', header: S6, body: BODY_EDITOR, h: 0, headless: true,
+    tag: '写作时 0px', tagWarn: false,
+    ds: '写作时头部完全隐藏，只留文字。指针移到面板顶部，头部才浮出（带一层向下的淡出，不硬切）——用完自动收回。',
+    pros: [['g', '最彻底'], ['n', '「轻量快速」的极致：写字时屏幕上只有字']],
+    cons: [['o', '注意'], ['n', '功能靠悬停唤出，可发现性差；必须给 ⌘/ 之类的键盘入口兜底']],
+    benefit: '写作时面板上只有文字',
+    risk: '可发现性差，必须配键盘入口',
+  },
+]
+
+/* ============================================================================
+   渲染
+   ========================================================================= */
+const DIAG = [
+  ['1', '顶栏', 'logo + 搜索图标 + ⋯', 36],
+  ['2', '文档内查找', '在当前文档中查找…（回车跳转、⌘⇧F 全局搜索）', 40],
+  ['3', '标签页条', '4 个标签 + ＋', 32],
+  ['4', '富文本工具栏', '正文▾ B I U S </> 颜色 高亮 Emoji ⋯', 36],
+  ['5', '面包屑', '全部笔记 › 然后根据fi… · 已自动保存', 28],
+]
+document.getElementById('diagRows').innerHTML =
+  DIAG.map(([n, nm, ds, h]) => `<div class="rrow"><span class="n">${n}</span><span class="nm">${nm}</span><span class="ds">${ds}</span><span class="h">${h}px</span></div>`).join('')
+  + `<div class="rrow rrow--sum"><span class="n">Σ</span><span class="nm">合计</span><span class="ds">面板总高约 893px，头部占 19%，留给正文 721px</span><span class="h">172px</span></div>`
+
+// 基线：完全按当前实现
+document.getElementById('baseline').innerHTML = `
+<div class="ifp ifp--stage">
+  ${topbarHTML}
+  <div class="hd" style="border-bottom:none"><div class="hd__row" style="height:40px">${findHTML}</div><div class="hd__row" style="height:32px">${tabsHTML()}</div><div class="hd__row" style="height:36px">${barHTML}</div><div class="hd__row" style="height:28px">${crumbHTML}</div></div>
+  <div class="ifp__body" style="height:380px">${BODY_EDITOR}</div>
+  <div class="ifp__status"><span><b>⌥⌘N</b> 呼出 · <b>⌘K</b> 命令面板 · <b>⌘L</b> 笔记列表 · <b>/</b> 命令</span><span class="ok"><i></i>已保存</span></div>
+</div>`
+
+document.getElementById('grid').innerHTML = SCHEMES.map((s) => `
+<article class="proto" data-scheme="${s.id}">
+  <div class="proto__hd">
+    <span class="proto__no">${s.no}</span>
+    <span class="proto__nm">${s.name}</span>
+    <span class="proto__tag${s.tagWarn ? ' warn' : ''}">${s.tag}</span>
+  </div>
+  <p class="proto__ds">${s.ds}</p>
+  <div class="proto__stage">
+    ${s.vrail ? `
+    <div class="ifp ifp--stage ifp--vrail">
+      <div class="rail">${s.rail}</div>
+      <div class="vcol">
+        ${s.header}
+        <div class="ifp__body" style="height:380px">${s.body}</div>
+        <div class="ifp__status"><span><b>⌥⌘N</b> 呼出 · <b>⌘K</b> 命令面板</span><span class="ok"><i></i>已保存</span></div>
+      </div>
+    </div>` : `
+    <div class="ifp ifp--stage">
+      ${s.header}
+      <div class="ifp__body" style="height:380px">${s.body}</div>
+      <div class="ifp__status"><span><b>⌥⌘N</b> 呼出 · <b>⌘K</b> 命令面板 · <b>⌘L</b> 笔记列表</span><span class="ok"><i></i>已保存</span></div>
+    </div>`}
+  </div>
+  <div class="proto__ft">
+    ${s.pros.map(([k, t]) => `<div class="pf"><b class="${k}">${k === 'g' ? '好处' : k === 'o' ? '代价' : '说明'}</b><span>${t}</span></div>`).join('')}
+    ${s.cons.map(([k, t]) => `<div class="pf"><b class="${k}">${k === 'g' ? '好处' : k === 'o' ? '代价' : '说明'}</b><span>${t}</span></div>`).join('')}
+  </div>
+</article>`).join('')
+
+document.getElementById('cmpBody').innerHTML = `
+<tr class="cur"><td>现状（当前实现）</td><td class="num">172px</td><td class="num">—</td><td>信息最全，不需要任何额外操作</td><td>占 19% 高度，其中两行是低频信息</td></tr>
+` + SCHEMES.map((s) => `
+<tr class="${s.rec ? 'rec' : ''}">
+  <td>${s.no} ${s.name}</td>
+  <td class="num ${s.h <= 72 ? 'best' : ''}">${s.h === 0 ? '0 / 70px' : s.h + 'px'}</td>
+  <td class="num ${s.h <= 72 ? 'best' : ''}">${s.h === 162 ? '滚动后省 132' : s.h === 0 ? '省 172' : '省 ' + (172 - s.h)}</td>
+  <td>${s.benefit}</td>
+  <td>${s.risk}</td>
+</tr>`).join('')
+
+/* ============================================================================
+   交互
+   ========================================================================= */
+// ① 选中文字 → 浮出工具栏
+const s1 = document.querySelector('[data-scheme="s1"] .ifp')
+s1.querySelector('.ifp__doc')?.addEventListener('mouseup', () => s1.classList.add('show-float'))
+s1.querySelector('.ifp__doc')?.addEventListener('mouseleave', () => s1.classList.remove('show-float'))
+s1.querySelector('.float-bar')?.addEventListener('mouseenter', () => s1.classList.add('show-float'))
+
+// ③ 滚动折叠
+const s3 = document.querySelector('[data-scheme="s3"] .ifp__body')
+s3?.addEventListener('scroll', () => {
+  document.querySelector('[data-scheme="s3"] .hd--s3').classList.toggle('collapsed', s3.scrollTop > 24)
+})
+
+// ④ 双态切换
+const s4 = document.querySelector('[data-scheme="s4"]')
+s4?.querySelectorAll('[data-seg]').forEach((seg) => {
+  seg.addEventListener('click', () => {
+    const key = seg.dataset.seg
+    s4.querySelectorAll('[data-seg]').forEach((x) => x.classList.toggle('on', x === seg))
+    s4.querySelectorAll('[data-pane]').forEach((p) => p.classList.toggle('on', p.dataset.pane === key))
+  })
+})
+
+// ⑥ 悬停顶部浮出
+const s6 = document.querySelector('[data-scheme="s6"]')
+const hd6 = s6?.querySelector('.hd--s6')
+const zone6 = s6?.querySelector('.hotbar')
+const show6 = () => hd6.classList.add('show')
+const hide6 = () => setTimeout(() => { if (!hd6.matches(':hover') && !zone6.matches(':hover')) hd6.classList.remove('show') }, 260)
+zone6?.addEventListener('mouseenter', show6)
+hd6?.addEventListener('mouseenter', show6)
+hd6?.addEventListener('mouseleave', hide6)
+zone6?.addEventListener('mouseleave', hide6)
+</script>
+</body>
+</html>

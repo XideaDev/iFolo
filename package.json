@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "pnpm --filter @ifolo/editor dev",
     "build": "pnpm --filter @ifolo/editor build",
+    "test": "pnpm --filter @ifolo/editor test",
     "build:macos": "pnpm build && cd apps/macos && ./build.sh",
     "run:macos": "pnpm build:macos && open apps/macos/build/iFolo.app"
   },
@@ -18,5 +19,8 @@
     "onlyBuiltDependencies": [
       "esbuild"
     ]
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.14.0"
   }
 }

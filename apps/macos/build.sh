@@ -29,11 +29,14 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 #                   plain AppKit today but keep it in case SwiftUI arrives later
 "$SWIFTC" -O -swift-version 5 -parse-as-library -disable-sandbox \
   -target "$ARCH-apple-$TARGET_OS" \
-  -framework AppKit -framework WebKit -framework Carbon \
+  -framework AppKit -framework WebKit -framework Carbon -framework NaturalLanguage \
   "$ROOT"/Sources/*.swift -o "$APP/Contents/MacOS/iFolo"
 
 echo "[2/5] writing Info.plist"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
+  cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 echo "[3/5] embedding editor bundle"

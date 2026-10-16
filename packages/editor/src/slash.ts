@@ -5,7 +5,7 @@
  * 命令定义与插件状态放在一起 —— 菜单 UI 只负责渲染 plugin state。
  */
 
-import { Plugin, PluginKey, EditorState, Transaction, Command } from 'prosemirror-state'
+import { Plugin, PluginKey, EditorState, Transaction, Command, TextSelection } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { setBlockType, wrapIn } from 'prosemirror-commands'
 import { wrapInList } from 'prosemirror-schema-list'
@@ -48,11 +48,11 @@ const insertDivider: Command = (state, dispatch) => {
   if (!type.isTextblock) return false
   if (dispatch) {
     const hr = nodes.horizontal_rule.create()
-    const para = type.createAndFill()
-    if (!para) return false
+    const para = nodes.paragraph.create()
     const tr = state.tr.replaceSelectionWith(hr)
-    tr.insert(tr.selection.to, para)
-    tr.setSelection(state.selection.constructor as never)
+    const insertPos = tr.selection.to
+    tr.insert(insertPos, para)
+    tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1)))
     dispatch(tr.scrollIntoView())
   }
   return true

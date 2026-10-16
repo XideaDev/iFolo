@@ -1,0 +1,214 @@
+/* ============================================================================
+   iFolo 面板头部 —— 六种替代方案
+   ----------------------------------------------------------------------------
+   现状（编辑器模式）头部有 5 行、172px，占掉面板高度的 19%：
+     顶栏 36 + 文档内查找 40 + 标签页 32 + 工具栏 36 + 面包屑 28
+
+   六种方案都在回答同一个问题：哪些行是真的必须常驻，哪些可以按需出现。
+   ========================================================================= */
+
+/* ---------- 共用零件 ---------- */
+.hd {
+  flex: 0 0 auto; display: flex; flex-direction: column;
+  font-family: var(--font-ui); color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.hd__row { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-width: 0; }
+.hd__row + .hd__row { border-top: 1px solid var(--border-subtle); }
+.hd__logo { width: 17px; height: 17px; flex: 0 0 auto; display: flex; }
+.hd__logo svg { width: 17px; height: 17px; display: block; }
+.hd__t {
+  font-size: 13px; font-weight: 650; letter-spacing: -.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.hd__t.w { font-weight: 600; }
+.hd__sub { font-size: 11.5px; color: var(--text-tertiary); white-space: nowrap; flex: 0 0 auto; }
+.hd__acts { margin-left: auto; display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.hd__ib {
+  width: 24px; height: 24px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary); flex: 0 0 auto;
+  transition: background var(--dur-hover);
+}
+.hd__ib:hover { background: var(--surface-sunken); }
+.hd__ib.acc { background: var(--accent); color: #fff; }
+.hd__ib svg { width: 13px; height: 13px; display: block; }
+.hd__sep { width: 1px; height: 13px; background: var(--border-subtle); margin: 0 3px; flex: 0 0 auto; }
+
+/* 面包屑 */
+.hd__crumb { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-tertiary); min-width: 0; }
+.hd__crumb b { font-weight: 600; color: var(--text-secondary); }
+.hd__crumb .cur { color: var(--text-primary); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hd__crumb .ar { opacity: .45; }
+
+/* 标签页 */
+.hd__tabs { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+.hd__tab {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10.5px; font-weight: 650; padding: 3px 8px; border-radius: 6px;
+  background: var(--surface-sunken); color: var(--text-secondary); white-space: nowrap; flex: 0 0 auto;
+}
+.hd__tab.on { background: var(--accent-subtle); color: var(--accent); }
+.hd__tab i { font-style: normal; opacity: .5; font-size: 11px; line-height: 1; }
+.hd__tab.add { background: transparent; color: var(--text-tertiary); font-weight: 700; }
+/* 竖排标签用 */
+.hd__tab.v {
+  width: 22px; height: 22px; padding: 0; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;
+}
+
+/* 工具栏 */
+.hd__bar { display: flex; align-items: center; gap: 1px; padding: 0 7px; overflow: hidden; }
+.hd__blk {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 650; color: var(--text-primary);
+  padding: 0 8px; height: 22px; border-radius: 6px;
+  background: var(--surface-sunken); margin-right: 3px; flex: 0 0 auto;
+}
+.hd__fmt {
+  width: 22px; height: 22px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; color: var(--text-secondary); flex: 0 0 auto;
+}
+.hd__fmt:hover { background: var(--surface-sunken); }
+.hd__fmt.b { font-weight: 800; color: var(--text-primary); }
+.hd__fmt.i { font-family: Georgia, serif; font-style: italic; font-size: 13px; }
+.hd__fmt.u { text-decoration: underline; text-underline-offset: 2px; }
+.hd__fmt.s { text-decoration: line-through; }
+.hd__fmt.mono { font-family: var(--font-mono); font-size: 9.5px; }
+.hd__fmt svg { width: 12px; height: 12px; display: block; }
+.hd__more { margin-left: auto; color: var(--text-tertiary); font-size: 14px; letter-spacing: 1px; flex: 0 0 auto; }
+
+/* 文档内查找条 */
+.hd__find {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 10px; padding: 0 10px; height: 30px;
+  border: 1px solid var(--accent-border); border-radius: 8px;
+  background: var(--surface); box-shadow: 0 0 0 3px rgba(92, 163, 255, .14);
+  flex: 1 1 auto; min-width: 0;
+}
+.hd__find svg { width: 12px; height: 12px; color: var(--text-tertiary); flex: 0 0 auto; }
+.hd__find span { font-size: 11.5px; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hd__find .clr { margin-left: auto; color: var(--text-tertiary); font-size: 12px; flex: 0 0 auto; }
+
+/* ============================================================================
+   ① 单行制 —— 顶栏 / 面包屑 / 搜索合成一行；工具栏改为选中即浮出
+   ========================================================================= */
+.hd--s1 .hd__row.a { height: 40px; }
+/* 选中时浮出的工具条 */
+.ifp--stage .float-bar {
+  position: absolute; left: 50%; transform: translateX(-50%) translateY(-4px);
+  top: 74px; z-index: 6;
+  display: flex; align-items: center; gap: 1px; padding: 4px 6px;
+  background: var(--surface-raised); border: 1px solid var(--border-subtle);
+  border-radius: 10px; box-shadow: var(--shadow-popover);
+  opacity: 0; pointer-events: none;
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+.ifp.show-float .float-bar { opacity: 1; transform: translateX(-50%); pointer-events: auto; }
+
+/* ============================================================================
+   ② 标签即导航 —— 标签条升为唯一顶行，面包屑取消
+   ========================================================================= */
+.hd--s2 .hd__row.a { height: 38px; gap: 6px; }
+.hd--s2 .hd__tab { font-size: 11px; padding: 4px 9px; }
+.hd--s2 .hd__tab.on { box-shadow: inset 0 0 0 1px var(--accent-border); }
+
+/* ============================================================================
+   ③ 折叠头部 —— 向下滚动时收成 30px 迷你条
+   ========================================================================= */
+.hd--s3 { position: relative; }
+.hd--s3 .hd__mini {
+  height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 10px;
+  background: var(--surface); border-bottom: 1px solid var(--border-subtle);
+}
+.hd--s3 .hd__full {
+  display: flex; flex-direction: column;
+  max-height: 200px; overflow: hidden;
+  transition: max-height 320ms var(--ease-out), opacity 220ms var(--ease-out);
+}
+.hd--s3.collapsed .hd__full { max-height: 0; opacity: 0; }
+.hd--s3 .hd__mini { display: none; }
+.hd--s3.collapsed .hd__mini { display: flex; }
+
+/* ============================================================================
+   ④ 双态互斥 —— 工具栏与标签页共用一行，按状态轮流用
+   ========================================================================= */
+.hd--s4 .hd__row.a { height: 38px; }
+.hd--s4 .hd__row.b { height: 34px; position: relative; }
+.hd--s4 .hd__swap { display: flex; align-items: center; width: 100%; }
+.hd--s4 .hd__pane { display: none; align-items: center; width: 100%; min-width: 0; }
+.hd--s4 .hd__pane.on { display: flex; }
+/* 两段式开关：明确标出「现在看的是哪一种」，而不是一个含义模糊的按钮 */
+.hd--s4 .hd__seg {
+  display: inline-flex; gap: 1px; padding: 2px; border-radius: 7px;
+  background: var(--surface-sunken); flex: 0 0 auto; margin-right: 5px;
+}
+.hd--s4 .hd__seg span {
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px;
+  color: var(--text-tertiary); white-space: nowrap;
+}
+.hd--s4 .hd__seg span.on { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px rgba(16,24,40,.09); }
+
+/* ============================================================================
+   ⑤ 侧栏标签 —— 标签移到左侧竖栏，横向零占用
+   ----------------------------------------------------------------------------
+   注意：这一版要改面板根结构。标签栏必须与「其余所有内容」并列，
+   所以 .ifp 从纵向 flex 改成横向，右边再包一列。
+   ========================================================================= */
+.ifp--vrail { flex-direction: row; }
+.ifp--vrail .rail {
+  width: 30px; flex: 0 0 auto; display: flex; flex-direction: column;
+  align-items: center; gap: 4px; padding: 8px 0;
+  border-right: 1px solid var(--border-subtle);
+}
+.ifp--vrail .rail .mk {
+  width: 20px; height: 20px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; margin-bottom: 5px;
+}
+.ifp--vrail .rail .mk svg { width: 15px; height: 15px; display: block; }
+.ifp--vrail .rail .hd__tab.v {
+  width: 22px; height: 22px; padding: 0; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; background: transparent; color: var(--text-tertiary);
+}
+.ifp--vrail .rail .hd__tab.v.on { background: var(--accent-subtle); color: var(--accent); }
+.ifp--vrail .rail .hd__tab.v i { font-style: normal; }
+.ifp--vrail .rail .plus { color: var(--text-tertiary); font-size: 13px; font-weight: 700; margin-top: 2px; }
+.ifp--vrail .vcol { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.ifp--vrail .vcol > .hd__row { flex: 0 0 auto; }
+
+/* ============================================================================
+   ⑥ 无头头部 —— 写作时零 chrome，指针到顶部才浮出
+   ========================================================================= */
+.hd--s6 {
+  position: absolute; inset: 0 0 auto 0; z-index: 8;
+  border-bottom: none;
+  /* 必须实底 —— 用渐变做半透明的话，正下方的内容会透上来，两行字叠在一起看不清 */
+  background: var(--surface);
+  transform: translateY(-100%);
+  transition: transform 260ms var(--ease-out);
+}
+/* 淡出放在头部「下方」而不是头部内部 */
+.hd--s6:after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px;
+  background: linear-gradient(180deg, var(--surface), transparent);
+  pointer-events: none;
+}
+.hd--s6.show { transform: none; }
+.hd--s6 .hd__row.a { height: 36px; }
+.hd--s6 .hd__row.b { height: 34px; }
+.hd--s6 .hotbar {
+  position: absolute; inset: 0 0 auto 0; height: 22px; z-index: 9;
+  display: flex; align-items: center; justify-content: center;
+}
+.hd--s6 .hotbar .grip { width: 40px; height: 3px; border-radius: 3px; background: var(--border-strong); opacity: .5; }
+
+/* ============================================================================
+   对照用的面板舞台
+   ========================================================================= */
+.ifp--stage { --ifp-op: 1; position: relative; }
+/* 原型的正文可滚动 —— 真机的编辑器也是滚动的，这样 ③ 的折叠才有触发条件 */
+.ifp--stage .ifp__body { position: relative; overflow-y: auto; overscroll-behavior: contain; }
+.ifp--stage .ifp__body::-webkit-scrollbar { width: 6px; }
+.ifp--stage .ifp__body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }

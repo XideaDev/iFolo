@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#F5F7FA">
+<meta name="description" content="iFolo —— 屏幕边缘笔记。指针碰到屏幕边缘，笔记就浮在你手头的工作之上。">
+<title>iFolo · 屏幕边缘笔记</title>
+<link rel="stylesheet" href="./assets/tokens.css">
+<link rel="stylesheet" href="./assets/panel.css">
+<style>
+/* ============================================================================
+   iFolo 官网 · 方案一 · 桌面模拟版
+   ----------------------------------------------------------------------------
+   以「边缘触发式」为父本，改了四件事：
+
+   1. 背景去 AI 味。原来是三色（蓝+橙+绿）径向光晕的 mesh 渐变，那是标准的
+      AI 生成味。现在页面主体回到产品报告那套扁平画布（#F5F7FA + 白卡片），
+      只在首屏中央那台「Mac 屏幕」里放一张单一场景的动态壁纸（天空 + 远山 + 光晕），
+      色相成组、有明暗层次。
+
+   2. 首屏中央是一台模拟的 macOS 屏幕。菜单栏、桌面小组件、Dock 全按真机比例做，
+      壁纸随真实时间自动切换（黎明 / 白天 / 黄昏 / 夜晚），也可手动选。
+      注意：只在这块屏幕里模拟 macOS，网站自己的导航与版式不变。
+
+   3. 暗色模式。整站 + 面板 + 屏幕壁纸联动，跟随系统或手动切换。
+
+   4. H5。窄屏下屏幕改为竖版，面板占满屏宽，Dock 与热区隐藏。
+   ========================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  transition: background 300ms var(--ease-out), color 300ms var(--ease-out);
+}
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+::selection { background: var(--blue-200); color: var(--blue-900); }
+[data-theme="dark"] ::selection { background: #2C4A6E; color: #EAF0F8; }
+
+/* ============================================================================
+   动态壁纸（只在首屏那台屏幕里生效）
+   ----------------------------------------------------------------------------
+   每一套都是一整个场景：天空渐变 + 一个光晕（日/月）+ 三层远近山。
+   色相成组、不跨色系，所以不会出现「AI 渐变」那种彩虹感。
+   ========================================================================= */
+body[data-wall="dawn"] {
+  --sky-1: #6E8FB4; --sky-2: #A9BFD2; --sky-3: #E6D9CE;
+  --glow: rgba(255, 226, 186, .85); --glow-x: 22%; --glow-y: 74%; --glow-r: 46% 34%;
+  --hill-1: #5C7185; --hill-2: #43566A; --hill-3: #2F4054;
+}
+body[data-wall="day"] {
+  --sky-1: #6FB6E4; --sky-2: #A6D6EE; --sky-3: #DCEFF6;
+  --glow: rgba(255, 249, 224, .9); --glow-x: 76%; --glow-y: 14%; --glow-r: 52% 40%;
+  --hill-1: #4E9A8E; --hill-2: #37787E; --hill-3: #2A6070;
+}
+body[data-wall="dusk"] {
+  --sky-1: #46536E; --sky-2: #9E7B72; --sky-3: #F2C99B;
+  --glow: rgba(255, 214, 150, .95); --glow-x: 30%; --glow-y: 78%; --glow-r: 54% 40%;
+  --hill-1: #7A5055; --hill-2: #553A48; --hill-3: #35283A;
+}
+body[data-wall="night"] {
+  --sky-1: #0B1120; --sky-2: #16233D; --sky-3: #24344F;
+  --glow: rgba(168, 196, 240, .30); --glow-x: 78%; --glow-y: 12%; --glow-r: 40% 30%;
+  --hill-1: #1B2A44; --hill-2: #121C30; --hill-3: #080D18;
+}
+
+.wall {
+  position: absolute; inset: 0; overflow: hidden;
+  background:
+    radial-gradient(var(--glow-r) at var(--glow-x) var(--glow-y), var(--glow), transparent 62%),
+    radial-gradient(74% 44% at 8% 114%, var(--hill-1), transparent 58%),
+    radial-gradient(66% 38% at 94% 120%, var(--hill-2), transparent 56%),
+    radial-gradient(116% 54% at 50% 136%, var(--hill-3), transparent 62%),
+    linear-gradient(176deg, var(--sky-1) 0%, var(--sky-2) 54%, var(--sky-3) 100%);
+  transition: background 600ms var(--ease-out);
+}
+body[data-wall="night"] .wall:after,
+body[data-wall="dusk"] .wall:after {
+  content: ""; position: absolute; inset: 0; opacity: .55;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 14%, rgba(255,255,255,.9), transparent),
+    radial-gradient(1.5px 1.5px at 28% 8%,  rgba(255,255,255,.7), transparent),
+    radial-gradient(1px 1px   at 46% 18%, rgba(255,255,255,.6), transparent),
+    radial-gradient(1.5px 1.5px at 63% 6%,  rgba(255,255,255,.8), transparent),
+    radial-gradient(1px 1px   at 84% 21%, rgba(255,255,255,.55), transparent);
+}
+.wall__grain {
+  position: absolute; inset: 0; opacity: .4; pointer-events: none;
+  background-image: radial-gradient(rgba(255,255,255,.16) 1px, transparent 1px);
+  background-size: 3px 3px; mix-blend-mode: overlay;
+}
+
+/* 壁纸明暗决定屏幕内菜单栏与 Dock 的配色（macOS 也是这么做的） */
+body[data-wall-lum="light"] {
+  --mb-bg: rgba(252, 253, 254, .5); --mb-fg: #16202B; --mb-hover: rgba(16, 24, 40, .08);
+  --mb-line: rgba(16, 24, 40, .07); --dock-bg: rgba(255, 255, 255, .3); --dock-br: rgba(255, 255, 255, .42);
+}
+body[data-wall-lum="dark"] {
+  --mb-bg: rgba(14, 18, 26, .44); --mb-fg: #E9EDF3; --mb-hover: rgba(255, 255, 255, .14);
+  --mb-line: rgba(255, 255, 255, .1); --dock-bg: rgba(20, 24, 32, .32); --dock-br: rgba(255, 255, 255, .16);
+}
+
+/* ============================================================================
+   站点导航（我们自己的，不是 macOS 菜单栏）
+   ========================================================================= */
+.nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 60; height: 60px;
+  display: flex; align-items: center; gap: 10px; padding: 0 26px;
+  background: rgba(255, 255, 255, .72);
+  border-bottom: 1px solid rgba(16, 24, 40, .07);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  transition: background 300ms var(--ease-out), border-color 300ms var(--ease-out);
+}
+[data-theme="dark"] .nav { background: rgba(21, 24, 29, .74); border-bottom-color: rgba(255, 255, 255, .08); }
+.nav__brand { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+.nav__brand svg { width: 22px; height: 22px; }
+.nav__links { margin-left: 22px; display: flex; gap: 4px; }
+.nav__links a {
+  font-size: 13.5px; font-weight: 550; color: var(--text-secondary);
+  padding: 7px 12px; border-radius: 8px; transition: background var(--dur-hover), color var(--dur-hover);
+}
+.nav__links a:hover { background: var(--surface-sunken); color: var(--text-primary); }
+.nav__right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 42px; padding: 0 20px; border-radius: 11px;
+  font-size: 14px; font-weight: 650; border: 1px solid transparent; cursor: pointer;
+  transition: transform var(--dur-hover), box-shadow var(--dur-hover), background var(--dur-hover);
+  white-space: nowrap;
+}
+.btn--primary { background: var(--blue-700); color: #fff; box-shadow: 0 10px 24px -12px rgba(9, 101, 220, .8); }
+.btn--primary:hover { background: var(--blue-800); transform: translateY(-1px); }
+.btn--ghost { background: var(--surface); color: var(--text-primary); border-color: var(--border); }
+.btn--ghost:hover { background: var(--surface-sunken); transform: translateY(-1px); }
+.btn--sm { height: 34px; padding: 0 14px; font-size: 13px; border-radius: 9px; }
+.btn--icon { width: 34px; height: 34px; padding: 0; border-radius: 9px; }
+.btn--icon svg { width: 15px; height: 15px; }
+
+/* 导航里的下拉（墙纸 / 外观） */
+.pop-wrap { position: relative; }
+.pop {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 70;
+  min-width: 212px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: 12px; box-shadow: var(--shadow-popover);
+  opacity: 0; transform: translateY(-6px) scale(.98); pointer-events: none;
+  transition: opacity 140ms var(--ease-out), transform 140ms var(--ease-out);
+}
+.pop.on { opacity: 1; transform: none; pointer-events: auto; }
+.pop__ttl { font-size: 10px; font-weight: 750; letter-spacing: .07em; color: var(--text-tertiary); padding: 6px 9px 5px; }
+.pop__row {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 7px 9px; border-radius: 8px; border: none; background: transparent;
+  font-size: 12.5px; font-weight: 550; color: var(--text-primary); cursor: pointer; text-align: left;
+}
+.pop__row:hover { background: var(--surface-sunken); }
+.pop__row.on { background: var(--accent-subtle); color: var(--accent); font-weight: 650; }
+.pop__row .sw { width: 26px; height: 17px; border-radius: 5px; flex: 0 0 auto; border: 1px solid var(--border); }
+.pop__hr { height: 1px; background: var(--border-subtle); margin: 5px 4px; }
+
+/* ============================================================================
+   首屏
+   ========================================================================= */
+.hero { padding: 84px 0 0; text-align: center; }
+.hero h1 {
+  margin: 18px auto 0; max-width: 16ch;
+  font-size: clamp(30px, 4.2vw, 48px); font-weight: 700;
+  line-height: 1.1; letter-spacing: -.035em;
+}
+.hero .lead { margin: 18px auto 0; max-width: 620px; }
+.hero__cta { display: flex; gap: 11px; justify-content: center; margin-top: 26px; flex-wrap: wrap; }
+
+/* ---------- 模拟的 macOS 屏幕 ---------- */
+.mac {
+  position: relative;
+  width: min(880px, 100% - 48px);
+  margin: 24px auto 0;
+}
+/* 屏幕下方的氛围光，把「这是一台设备」讲清楚 */
+.mac__glow {
+  position: absolute; left: 8%; right: 8%; bottom: -34px; height: 90px;
+  background: radial-gradient(60% 100% at 50% 0%, rgba(9, 101, 220, .22), transparent 72%);
+  filter: blur(26px); z-index: 0; pointer-events: none;
+}
+.mac__screen {
+  position: relative; z-index: 1;
+  aspect-ratio: 16 / 10;
+  border-radius: 14px; overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow:
+    0 2px 4px rgba(16, 24, 40, .06),
+    0 40px 90px -40px rgba(16, 24, 40, .5),
+    0 0 0 1px rgba(255, 255, 255, .5) inset;
+  background: #0B1120;
+}
+[data-theme="dark"] .mac__screen {
+  border-color: var(--border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .4), 0 40px 90px -40px rgba(0, 0, 0, .8);
+}
+/* 屏幕内的高光，模拟玻璃反光 */
+.mac__screen:after {
+  content: ""; position: absolute; inset: 0; z-index: 9; pointer-events: none;
+  background: linear-gradient(118deg, rgba(255,255,255,.12) 0%, transparent 34%, transparent 68%, rgba(255,255,255,.05) 100%);
+}
+
+/* 屏幕内菜单栏 */
+.mac__menu {
+  position: absolute; inset: 0 0 auto 0; height: 26px; z-index: 5;
+  display: flex; align-items: center; gap: 1px; padding: 0 8px;
+  font-size: 11.5px; font-weight: 500;
+  background: var(--mb-bg); color: var(--mb-fg);
+  border-bottom: 1px solid var(--mb-line);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.mac__menu .it { padding: 0 7px; height: 18px; display: inline-flex; align-items: center; border-radius: 5px; white-space: nowrap; }
+.mac__menu .it.strong { font-weight: 700; }
+.mac__menu .sp { flex: 1 1 auto; }
+.mac__menu svg { width: 12px; height: 12px; }
+
+/* 屏幕内的「你手头的工作」窗口 —— 面板要浮在它上面 */
+.mac__win {
+  position: absolute; left: 5%; top: 15%; width: 56%; z-index: 2;
+  border-radius: 10px; overflow: hidden;
+  background: rgba(22, 26, 33, .88);
+  border: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 30px 60px -26px rgba(0, 0, 0, .6);
+  backdrop-filter: blur(10px);
+}
+.mac__win-bar {
+  height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 10px;
+  background: rgba(38, 43, 52, .92); border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+.mac__win-bar i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+.mac__win-bar .t { margin-left: 8px; font-size: 10.5px; color: #98A3B2; font-family: var(--font-mono); }
+.mac__win-body { padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 7px; }
+.mac__win-body .ln { height: 7px; border-radius: 4px; background: rgba(255, 255, 255, .12); }
+.mac__win-body .ln.k { background: rgba(255, 165, 31, .55); }
+.mac__win-body .ln.f { background: rgba(92, 163, 255, .55); }
+.mac__win-body .ln.s { background: rgba(105, 207, 61, .5); }
+.mac__win-body .ln.c { background: rgba(255, 255, 255, .18); }
+
+/* 屏幕内 Dock */
+.mac__dock {
+  position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 4;
+  display: flex; align-items: flex-end; gap: 4px; padding: 5px 7px; border-radius: 15px;
+  background: var(--dock-bg); border: 1px solid var(--dock-br);
+  box-shadow: 0 14px 30px -14px rgba(10, 16, 26, .55);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+}
+.mac__dock .ap {
+  width: 30px; height: 30px; border-radius: 8px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center; position: relative;
+  transform-origin: 50% 100%; transition: transform 220ms var(--ease-out);
+  box-shadow: 0 3px 8px -2px rgba(10, 16, 26, .4);
+}
+.mac__dock .ap svg { width: 16px; height: 16px; }
+.mac__dock .ap:hover { transform: scale(1.5) translateY(-7px); }
+.mac__dock .ap:hover + .ap,
+.mac__dock .ap:has(+ .ap:hover) { transform: scale(1.2) translateY(-3px); }
+.mac__dock .sp { width: 1px; height: 24px; background: var(--dock-br); margin: 0 3px; align-self: center; }
+.mac__dock .dot { position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%); width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.85); }
+
+/* 屏幕内的面板停靠区 */
+.mac__panel {
+  position: absolute; inset: 0; z-index: 6;
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 36px 10px 46px;
+  pointer-events: none;
+}
+.mac__panel .ifp {
+  --ifp-op: .95;
+  pointer-events: auto;
+  transform: translateX(calc(100% + 10px));
+  transition: transform 380ms cubic-bezier(.32, .72, 0, 1);
+  box-shadow: -30px 0 70px -30px rgba(20, 22, 40, .5), 0 22px 50px -26px rgba(20, 22, 40, .36);
+}
+.mac__panel.out .ifp { transform: translateX(0); }
+/* 收起时露出的把手 */
+.mac__grip {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%) translateX(0);
+  width: 10px; height: 104px; border-radius: 6px 0 0 6px;
+  background: rgba(255, 255, 255, .9);
+  border: 1px solid rgba(16, 24, 40, .07); border-right: none;
+  box-shadow: -6px 0 16px -8px rgba(20, 22, 40, .34);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  cursor: pointer; pointer-events: auto;
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+}
+[data-theme="dark"] .mac__grip { background: rgba(38, 43, 52, .92); border-color: rgba(255, 255, 255, .12); }
+.mac__grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--border-strong); }
+.mac__grip i:first-child { background: var(--blue-500); }
+.mac__panel.out .mac__grip { opacity: 0; transform: translateY(-50%) translateX(12px); }
+/* 右边缘热区（真机 3pt，网页上放大到 24px 才好碰） */
+.mac__hot { position: absolute; top: 26px; right: 0; bottom: 0; width: 24px; z-index: 8; pointer-events: auto; }
+.mac__hot .line {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 110px; border-radius: 3px 0 0 3px; background: var(--blue-500);
+  animation: pulse 2.8s ease-out infinite;
+}
+.mac__panel.out .mac__hot .line { opacity: 0; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(92, 163, 255, .45) }
+  70% { box-shadow: 0 0 0 12px rgba(92, 163, 255, 0) }
+  100% { box-shadow: 0 0 0 0 rgba(92, 163, 255, 0) }
+}
+
+/* 首屏提示 */
+.hero__hint {
+  display: inline-flex; align-items: center; gap: 10px; margin-top: 24px;
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: 999px; padding: 9px 17px 9px 13px;
+  box-shadow: var(--shadow-raised);
+}
+.hero__hint .track {
+  width: 66px; height: 20px; border-radius: 6px; position: relative;
+  background: var(--surface-sunken); overflow: hidden; flex: 0 0 auto;
+}
+.hero__hint .track .dot {
+  position: absolute; top: 50%; left: 4px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text-primary); transform: translateY(-50%);
+  animation: slide 2.9s cubic-bezier(.5, 0, .5, 1) infinite;
+}
+@keyframes slide { 0%, 18% { left: 4px } 52%, 68% { left: 54px } 100% { left: 4px } }
+.hero__hint b { color: var(--text-primary); }
+.only-touch { display: none; }
+
+/* ============================================================================
+   通用排版与区块
+   ========================================================================= */
+.wrap { width: min(1180px, 100% - 48px); margin-inline: auto; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+.eyebrow i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue-500); }
+.h-1 { font-size: clamp(28px, 3.4vw, 44px); font-weight: 700; line-height: 1.14; letter-spacing: -.03em; margin: 0; }
+.h-2 { font-size: clamp(21px, 2.1vw, 29px); font-weight: 700; line-height: 1.22; letter-spacing: -.025em; margin: 0; }
+.h-3 { font-size: 17px; font-weight: 650; line-height: 1.34; letter-spacing: -.015em; margin: 0; }
+.lead { font-size: clamp(15px, 1.3vw, 17px); line-height: 1.66; color: var(--text-secondary); margin: 0; }
+.body { font-size: 14.5px; line-height: 1.72; color: var(--text-secondary); margin: 0; }
+.small { font-size: 12.5px; line-height: 1.6; color: var(--text-tertiary); }
+.mono { font-family: var(--font-mono); font-size: .93em; }
+code {
+  font-family: var(--font-mono); font-size: .92em;
+  background: var(--surface-sunken); color: var(--text-primary);
+  padding: 1px 5px; border-radius: 5px;
+}
+kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  font-size: 11.5px; font-weight: 650;
+  color: var(--text-primary); background: var(--surface);
+  border: 1px solid var(--border); border-bottom-width: 2px;
+  border-radius: 5px; line-height: 1;
+}
+.card { background: var(--surface); border: 1px solid var(--border-subtle); border-radius: 16px; box-shadow: var(--shadow-raised); }
+.reveal { opacity: 0; transform: translateY(18px); }
+.reveal.in { opacity: 1; transform: none; transition: opacity 620ms var(--ease-out), transform 620ms var(--ease-out); }
+
+/* ============================================================================
+   第二幕：滚动分镜（左边一扇窗讲，右边一扇窗演）
+   ========================================================================= */
+.story { position: relative; }
+.story > .wrap { min-height: 400vh; }
+.story__stage { position: sticky; top: 0; height: 100vh; display: grid; place-items: center start; }
+.story__stack { display: grid; }
+.story__block {
+  grid-area: 1 / 1; width: min(560px, 44vw);
+  padding: 34px 34px 36px; border-radius: 18px;
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-raised);
+  opacity: 0; transform: translateY(14px) scale(.985);
+  transition: opacity 460ms var(--ease-out), transform 460ms var(--ease-out);
+  pointer-events: none;
+}
+.story__block.on { opacity: 1; transform: none; }
+.story__block .n {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
+  color: var(--accent); letter-spacing: .08em; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 9px;
+}
+.story__block .n:after { content: ""; flex: 1; height: 1px; background: var(--accent-border); }
+.story__block h3 { margin: 0 0 14px; }
+.story__block p { margin: 0; }
+.story__block .keys { display: flex; gap: 7px; margin-top: 22px; align-items: center; flex-wrap: wrap; }
+.story__block .keys span { font-size: 12.5px; color: var(--text-tertiary); }
+
+/* 第二幕用的第二块面板，sticky 在右列 */
+.story__panel { position: fixed; top: 0; right: 0; height: 100vh; display: flex; align-items: center; padding: 88px 26px 40px; z-index: 30; opacity: 0; pointer-events: none; transition: opacity 300ms var(--ease-out); }
+body[data-act="story"] .story__panel { opacity: 1; pointer-events: auto; }
+
+.progress {
+  position: fixed; left: 22px; top: 50%; transform: translateY(-50%); z-index: 20;
+  display: flex; flex-direction: column; gap: 9px;
+  opacity: 0; transition: opacity 300ms var(--ease-out);
+}
+body[data-act="story"] .progress { opacity: 1; }
+.progress b { width: 3px; height: 26px; border-radius: 3px; background: var(--border); transition: background 300ms var(--ease-out), height 300ms var(--ease-out); }
+.progress b.on { background: var(--accent); height: 40px; }
+
+/* ============================================================================
+   能力 / 快捷键 / 底栏
+   ========================================================================= */
+.abil { padding: 100px 0; }
+.abil__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 44px; }
+.ability { padding: 26px 24px 28px; position: relative; overflow: hidden; }
+.ability .no { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--text-tertiary); letter-spacing: .08em; }
+.ability h3 { margin: 14px 0 10px; }
+.ability p { margin: 0; font-size: 13.5px; line-height: 1.7; color: var(--text-secondary); }
+.ability .tag { display: inline-block; margin-top: 16px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
+.ability .tag.b { background: var(--accent-subtle); color: var(--accent); }
+.ability .tag.o { background: var(--warn-soft); color: var(--warn); }
+.ability .tag.g { background: var(--success-soft); color: var(--success); }
+.ability::after { content: ""; position: absolute; right: -40px; top: -40px; width: 120px; height: 120px; border-radius: 50%; opacity: .1; }
+.ability:nth-child(1)::after { background: var(--blue-500); }
+.ability:nth-child(2)::after { background: var(--orange-500); }
+.ability:nth-child(3)::after { background: var(--green-500); }
+
+.keysrow { padding: 0 0 100px; }
+.keysrow__card { padding: 34px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 44px; align-items: center; }
+.keysrow__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 26px; }
+.keysrow__item { display: flex; align-items: center; gap: 10px; }
+.keysrow__item span { margin-left: auto; font-size: 12.5px; color: var(--text-tertiary); }
+
+.foot { padding: 54px 0 70px; border-top: 1px solid var(--border-subtle); }
+.foot__grid { display: flex; align-items: flex-end; justify-content: space-between; gap: 34px; flex-wrap: wrap; }
+.foot__brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; }
+.foot__brand svg { width: 20px; height: 20px; }
+.foot__meta { font-size: 12.5px; color: var(--text-tertiary); margin-top: 8px; }
+.foot__links { display: flex; gap: 20px; font-size: 13px; color: var(--text-secondary); }
+
+/* ============================================================================
+   H5 / 窄屏
+   ========================================================================= */
+@media (max-width: 1120px) {
+  .progress { display: none; }
+  .story > .wrap { min-height: auto; padding: 40px 0 60px; }
+  .story__stage { position: static; height: auto; display: block; }
+  .story__stack { display: block; }
+  .story__block {
+    grid-area: auto; width: auto; opacity: 1; transform: none;
+    pointer-events: auto; margin-bottom: 16px;
+  }
+  /* 分镜里的面板改为文档流内的一块 */
+  .story__panel {
+    position: static; height: auto; padding: 0 0 40px; opacity: 1;
+    pointer-events: auto; justify-content: center;
+  }
+  .story__panel .ifp { --ifp-w: min(448px, 100%); }
+  .abil__grid { grid-template-columns: minmax(0, 1fr); }
+  .keysrow__card { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+}
+@media (max-width: 760px) {
+  .nav { height: 56px; padding: 0 14px; gap: 8px; }
+  .nav__links { display: none; }
+  .nav__brand { font-size: 15px; }
+  .hero { padding-top: 92px; }
+  .mac { width: calc(100% - 28px); margin-top: 36px; }
+  /* 竖版屏幕：面板占满宽度 */
+  .mac__screen { aspect-ratio: 4 / 5; border-radius: 12px; }
+  .mac__win { left: 5%; top: 12%; width: 78%; }
+  .mac__menu { font-size: 11px; gap: 0; padding: 0 6px; }
+  .mac__menu .it { padding: 0 5px; }
+  .mac__menu .it.hide-sm { display: none; }
+  .mac__dock { display: none; }
+  .mac__panel { padding: 34px 8px 12px; }
+  .mac__panel .ifp { --ifp-w: 100%; border-radius: 12px; }
+  .wrap { width: calc(100% - 32px); }
+  .abil { padding: 70px 0; }
+  .keysrow { padding-bottom: 70px; }
+  .keysrow__grid { grid-template-columns: minmax(0, 1fr); }
+  .hero__hint { font-size: 12.5px; padding: 8px 14px 8px 11px; }
+  .only-pointer { display: none; }
+  .only-touch { display: inline; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .reveal, .reveal.in { opacity: 1 !important; transform: none !important; }
+}
+</style>
+</head>
+<body data-wall="day" data-wall-lum="light" data-act="hero">
+
+<!-- ============ 站点导航（我们自己的） ============ -->
+<header class="nav">
+  <span class="nav__brand" id="brandLogo"></span>
+  <nav class="nav__links">
+    <a href="#story">功能</a>
+    <a href="#abilities">差异</a>
+    <a href="#keys">快捷键</a>
+  </nav>
+  <div class="nav__right">
+    <span class="pop-wrap">
+      <button class="btn btn--ghost btn--sm" id="btnWall" title="切换桌面壁纸">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="width:14px;height:14px"><rect x="2.2" y="3" width="11.6" height="8.4" rx="1.6"/><path d="M6 13.4h4"/></svg>
+        墙纸
+      </button>
+      <div class="pop" id="popWall">
+        <div class="pop__ttl">动态桌面</div>
+        <button class="pop__row" data-wall="auto"><span class="sw" style="background:linear-gradient(135deg,#6FB6E4,#2A6070)"></span>自动（跟随时间）</button>
+        <div class="pop__hr"></div>
+        <button class="pop__row" data-wall="dawn"><span class="sw" style="background:linear-gradient(135deg,#A9BFD2,#E6D9CE)"></span>黎明</button>
+        <button class="pop__row" data-wall="day"><span class="sw" style="background:linear-gradient(135deg,#6FB6E4,#4E9A8E)"></span>白天</button>
+        <button class="pop__row" data-wall="dusk"><span class="sw" style="background:linear-gradient(135deg,#C68A76,#F2C99B)"></span>黄昏</button>
+        <button class="pop__row" data-wall="night"><span class="sw" style="background:linear-gradient(135deg,#16233D,#0B1120)"></span>夜晚</button>
+      </div>
+    </span>
+    <button class="btn btn--ghost btn--sm btn--icon" id="btnTheme" title="切换外观">
+      <svg id="themeIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></svg>
+    </button>
+    <a class="btn btn--primary btn--sm" href="#keys">下载 macOS 版</a>
+  </div>
+</header>
+
+<!-- ============ 首屏 ============ -->
+<section class="hero">
+  <div class="wrap">
+    <span class="eyebrow reveal"><i></i>屏幕边缘笔记 · 跨 Mac / Windows</span>
+    <h1 class="reveal">想到就写，<br>不用切窗口。</h1>
+    <p class="lead reveal">
+      指针碰一下屏幕右边缘，笔记面板就浮在你手头的工作之上。写完随手收起，不打断心流。
+    </p>
+    <div class="hero__cta reveal">
+      <a class="btn btn--primary" href="#keys">下载 macOS 版</a>
+      <a class="btn btn--ghost" href="#story">看它怎么工作</a>
+    </div>
+  </div>
+
+  <!-- 模拟的 macOS 屏幕：只在首屏中央 -->
+  <div class="mac reveal" id="mac">
+    <div class="mac__glow"></div>
+    <div class="mac__screen" id="macScreen">
+      <div class="wall"><div class="wall__grain"></div></div>
+
+      <!-- 屏幕内菜单栏 -->
+      <div class="mac__menu">
+        <span class="it" id="macApple"></span>
+        <span class="it strong">iFolo</span>
+        <span class="it">文件</span>
+        <span class="it">编辑</span>
+        <span class="it hide-sm">显示</span>
+        <span class="it hide-sm">窗口</span>
+        <span class="sp"></span>
+        <span class="it" id="macClock">--:--</span>
+      </div>
+
+      <!-- 「你手头的工作」：面板要浮在它上面 -->
+      <div class="mac__win">
+        <div class="mac__win-bar">
+          <i style="background:#EF6166"></i><i style="background:#FFBA52"></i><i style="background:#69CF3D"></i>
+          <span class="t">Store.swift</span>
+        </div>
+        <div class="mac__win-body">
+          <span class="ln c" style="width:38%"></span>
+          <span class="ln k" style="width:62%"></span>
+          <span class="ln" style="width:74%"></span>
+          <span class="ln f" style="width:52%"></span>
+          <span class="ln s" style="width:66%"></span>
+          <span class="ln" style="width:44%"></span>
+          <span class="ln k" style="width:58%"></span>
+          <span class="ln" style="width:70%"></span>
+          <span class="ln c" style="width:32%"></span>
+        </div>
+      </div>
+
+      <!-- 屏幕内 Dock -->
+      <div class="mac__dock">
+        <span class="ap" style="background:linear-gradient(160deg,#7FC4EE,#2F7FC0)" title="iFolo">
+          <svg viewBox="0 0 20 20" fill="none">
+            <circle cx="4.8" cy="4.8" r="2.5" fill="#FFA51F"/>
+            <rect x="9" y="2.3" width="9" height="3.4" rx="1.7" fill="#E8E8E8"/>
+            <rect x="1.9" y="8.5" width="11.7" height="3.7" rx="1.85" fill="#5CA3FF"/>
+            <circle cx="10.5" cy="16.2" r="2.5" fill="#69CF3D"/>
+          </svg>
+          <span class="dot"></span>
+        </span>
+        <span class="ap" style="background:linear-gradient(160deg,#FFFFFF,#D8E2EC)" title="备忘录">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#5A6775" stroke-width="1.9" stroke-linecap="round"><path d="M6 3.6h12v16.8H6z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+        </span>
+        <span class="ap" style="background:linear-gradient(160deg,#FFFFFF,#EDEFF2)" title="日历">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#D52026" stroke-width="1.9" stroke-linecap="round"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3.6v3.4M15.5 3.6v3.4"/></svg>
+        </span>
+        <span class="ap" style="background:linear-gradient(160deg,#3A4250,#161B22)" title="终端">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#E9EDF3" stroke-width="1.9" stroke-linecap="round"><path d="M6 8.4l4 3.6-4 3.6M12.6 16h5.4"/></svg>
+        </span>
+        <span class="sp"></span>
+        <span class="ap" style="background:linear-gradient(160deg,#E9EDF3,#B9C3D0)" title="系统设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#40464F" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.4v2.2M12 18.4v2.2M20.6 12h-2.2M5.6 12H3.4M18.1 5.9l-1.6 1.6M7.5 16.5l-1.6 1.6M18.1 18.1l-1.6-1.6M7.5 7.5 5.9 5.9"/></svg>
+        </span>
+      </div>
+
+      <!-- 右边缘热区 + 停靠的面板 -->
+      <div class="mac__hot" id="macHot"><span class="line"></span></div>
+      <div class="mac__panel" id="macPanel">
+        <div class="mac__grip" id="macGrip" title="指针移到这里"><i></i><i></i><i></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap reveal">
+    <div class="hero__hint">
+      <span class="track"><span class="dot"></span></span>
+      <span class="only-pointer">把指针移到屏幕 <b>右边缘</b>，或点右侧把手</span>
+      <span class="only-touch">面板就停靠在上方那块屏幕里，可点笔记卡片切换</span>
+    </div>
+  </div>
+</section>
+
+<!-- 进度条 -->
+<div class="progress" id="progress"></div>
+
+<!-- 第二幕的面板（sticky 在右列） -->
+<div class="story__panel" id="storyPanel"></div>
+
+<!-- ============ 第二幕：滚动分镜 ============ -->
+<section class="story" id="story">
+  <div class="wrap">
+    <div class="story__stage">
+      <div class="story__stack" id="blocks">
+
+        <div class="story__block" data-state="list" data-label="笔记列表">
+          <div class="n">01 — 呼出</div>
+          <h3 class="h-2">碰一下就出来，不抢焦点</h3>
+          <p class="body">
+            面板用 <code class="mono">.nonactivatingPanel</code> 实现，呼出后<b>你的当前窗口仍是前台</b>。
+            不用点两下，不用切应用——指针碰边缘，面板就位，光标已经在编辑器里。
+          </p>
+          <div class="keys"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd><span>呼出 / 收起</span></div>
+        </div>
+
+        <div class="story__block" data-state="editor" data-label="编辑器">
+          <div class="n">02 — 写</div>
+          <h3 class="h-2">是一个真编辑器，不是便签框</h3>
+          <p class="body">
+            标题、列表、任务、代码块、引用、表格、行内代码、链接、高亮、颜色。
+            工具栏解决「先选格式再打字」，选中气泡解决「先选文字再改格式」——两条路径都不绕。
+          </p>
+          <div class="keys"><span>悬停段落左侧出现手柄，可拖拽重排</span></div>
+        </div>
+
+        <div class="story__block" data-state="cmd" data-label="命令面板">
+          <div class="n">03 — 找</div>
+          <h3 class="h-2">⌘K 一个入口，够用到底</h3>
+          <p class="body">
+            新建、切换列表、搜索、调透明度、收起面板——全部收在一个命令面板里。
+            手不离键盘就能完成所有操作。
+          </p>
+          <div class="keys"><kbd>⌘</kbd><kbd>K</kbd><span>命令面板</span></div>
+        </div>
+
+        <div class="story__block" data-state="search" data-label="语义检索">
+          <div class="n">04 — 找回</div>
+          <h3 class="h-2">记不住关键词，也能搜到</h3>
+          <p class="body">
+            基于 macOS 原生 <code class="mono">NLEmbedding</code> 的 300 维向量索引，
+            <b>完全脱机、零模型体积</b>。关键词稀疏匹配 + 向量余弦相似度混合排序，
+            用一句自然语言就能找回你写过的东西。
+          </p>
+          <div class="keys"><kbd>⌘</kbd><kbd>F</kbd><span>搜索笔记内容</span></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 差异能力 ============ -->
+<section class="abil" id="abilities">
+  <div class="wrap">
+    <div style="max-width:620px">
+      <span class="eyebrow reveal"><i></i>为什么不是又一个笔记应用</span>
+      <h2 class="h-1 reveal" style="margin-top:16px">这个品类被锁在 Apple 生态里太久了</h2>
+      <p class="lead reveal" style="margin-top:16px">
+        成熟的屏幕边缘笔记已经有几款，但它们都只服务 Mac。同时检索能力普遍停在「关键词 + 标签」——
+        笔记越记越多，越找越难。iFolo 想做三件它们结构性做不到的事。
+      </p>
+    </div>
+    <div class="abil__grid">
+      <div class="card ability reveal">
+        <div class="no">01</div>
+        <h3 class="h-3">跨平台</h3>
+        <p>外壳原生、编辑器在 Web 层。同一套编辑器代码直接复用到 Windows 外壳，不必重写两遍。Mac 和 Windows 用同一份笔记。</p>
+        <span class="tag b">原生外壳 + Web 编辑器</span>
+      </div>
+      <div class="card ability reveal">
+        <div class="no">02</div>
+        <h3 class="h-3">同步不设体积上限</h3>
+        <p>附件走独立通道，正文才进同步日志。一条带十几张截图的笔记，不会因为「太大」被静默跳过同步。</p>
+        <span class="tag o">附件与正文分离</span>
+      </div>
+      <div class="card ability reveal">
+        <div class="no">03</div>
+        <h3 class="h-3">语义检索</h3>
+        <p>用一句自然语言找回你写过的东西，而不必记得当时用了哪个词。索引全在本机，完全脱机。</p>
+        <span class="tag g">300 维 · 本地向量</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 快捷键 ============ -->
+<section class="keysrow" id="keys">
+  <div class="wrap">
+    <div class="card keysrow__card reveal">
+      <div>
+        <span class="eyebrow"><i></i>键盘优先</span>
+        <h2 class="h-2" style="margin-top:14px">手不用离开键盘</h2>
+        <p class="body" style="margin-top:12px">
+          面板是给「正在做别的事」的人用的，所以每一个动作都有快捷键。所有键位都可在设置里改。
+        </p>
+      </div>
+      <div class="keysrow__grid">
+        <div class="keysrow__item"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd><span>呼出 / 收起面板</span></div>
+        <div class="keysrow__item"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>M</kbd><span>新建快速笔记</span></div>
+        <div class="keysrow__item"><kbd>⌘</kbd><kbd>K</kbd><span>命令面板</span></div>
+        <div class="keysrow__item"><kbd>⌘</kbd><kbd>L</kbd><span>笔记列表</span></div>
+        <div class="keysrow__item"><kbd>⌘</kbd><kbd>F</kbd><span>搜索笔记内容</span></div>
+        <div class="keysrow__item"><kbd>/</kbd><span>唤出块命令</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap foot__grid">
+    <div>
+      <div class="foot__brand" id="footLogo"></div>
+      <div class="foot__meta">屏幕边缘笔记 · 跨 Mac / Windows · 早期开发中</div>
+    </div>
+    <div class="foot__links">
+      <a href="#story">功能</a>
+      <a href="#abilities">差异</a>
+      <a href="#keys">快捷键</a>
+      <a href="./index.html">其他方案</a>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+import { createPanel, LOGO } from './assets/panel.js'
+
+const body = document.body
+const $ = (s) => document.querySelector(s)
+
+$('#brandLogo').innerHTML = LOGO
+$('#footLogo').innerHTML = LOGO + '<span>iFolo</span>'
+$('#macApple').innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.6 10.6c0-1.9 1.5-2.8 1.6-2.9-.9-1.3-2.2-1.4-2.7-1.5-1.2-.1-2.2.7-2.8.7-.6 0-1.4-.7-2.4-.7-1.2 0-2.4.7-3 1.8-1.3 2.2-.3 5.5.9 7.3.6.9 1.3 1.9 2.3 1.9.9 0 1.3-.6 2.4-.6 1.1 0 1.4.6 2.4.6 1 0 1.6-.9 2.2-1.8.7-1 1-2 1-2.1-.1 0-2-.8-2-2.7zM11.8 4.8c.5-.6.8-1.4.7-2.2-.7 0-1.6.5-2.1 1.1-.5.5-.9 1.4-.8 2.2.8.1 1.6-.4 2.2-1.1z"/></svg>'
+
+/* ============================================================================
+   主题与动态壁纸
+   ========================================================================= */
+const prefersDark = matchMedia('(prefers-color-scheme: dark)')
+let themePref = localStorage.getItem('ifolo.theme') || 'auto'
+let wallPref = localStorage.getItem('ifolo.wall') || 'auto'
+
+// 动态桌面：按真实时间选壁纸（macOS 的 Dynamic Desktop 也是这么做的）
+function wallByHour(h) {
+  if (h >= 5 && h < 9) return 'dawn'
+  if (h >= 9 && h < 17) return 'day'
+  if (h >= 17 && h < 20) return 'dusk'
+  return 'night'
+}
+const resolveWall = () => (wallPref === 'auto' ? wallByHour(new Date().getHours()) : wallPref)
+const resolveTheme = () => (themePref === 'auto' ? (prefersDark.matches ? 'dark' : 'light') : themePref)
+
+function applyWall() {
+  const w = resolveWall()
+  body.dataset.wall = w
+  body.dataset.wallLum = (w === 'night' || w === 'dusk') ? 'dark' : 'light'
+  document.querySelectorAll('#popWall .pop__row').forEach((r) => r.classList.toggle('on', r.dataset.wall === wallPref))
+}
+function applyTheme() {
+  const t = resolveTheme()
+  document.documentElement.dataset.theme = t
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'dark' ? '#15181D' : '#F5F7FA')
+  $('#themeIcon').innerHTML = t === 'dark'
+    ? '<circle cx="8" cy="8" r="3.1"/><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1M12.4 12.4l-1.1-1.1M4.7 4.7 3.6 3.6"/>'
+    : '<path d="M13.4 9.6A5.6 5.6 0 0 1 6.4 2.6a5.8 5.8 0 1 0 7 7z"/>'
+}
+applyWall()
+applyTheme()
+prefersDark.addEventListener('change', () => { if (themePref === 'auto') applyTheme() })
+setInterval(() => { if (wallPref === 'auto') applyWall() }, 600000)
+
+$('#btnWall').addEventListener('click', (e) => { e.stopPropagation(); $('#popWall').classList.toggle('on') })
+$('#popWall').addEventListener('click', (e) => {
+  const row = e.target.closest('[data-wall]')
+  if (!row) return
+  wallPref = row.dataset.wall
+  localStorage.setItem('ifolo.wall', wallPref)
+  applyWall()
+  $('#popWall').classList.remove('on')
+})
+$('#btnTheme').addEventListener('click', () => {
+  themePref = resolveTheme() === 'dark' ? 'light' : 'dark'
+  localStorage.setItem('ifolo.theme', themePref)
+  applyTheme()
+})
+document.addEventListener('click', () => $('#popWall').classList.remove('on'))
+
+function tickClock() {
+  const d = new Date()
+  const wd = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()]
+  $('#macClock').textContent = `${d.getMonth() + 1}月${d.getDate()}日 ${wd} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+tickClock()
+setInterval(tickClock, 20000)
+
+/* ============================================================================
+   首屏那台屏幕里的面板
+   ========================================================================= */
+// 面板总高 = 顶栏36 + 标签条30 + 工具栏34 + 正文 + 状态栏26 ≈ 正文 + 126
+const CHROME = 126
+const macScreen = $('#macScreen')
+const macPanel = $('#macPanel')
+
+function macPanelH() {
+  const h = macScreen.clientHeight
+  return Math.max(200, h - 36 - 46 - CHROME)
+}
+const panelMac = createPanel({ initial: 'list', height: macPanelH(), tabs: false, toolbar: false })
+macPanel.append(panelMac)
+
+function setMacOut(on) { macPanel.classList.toggle('out', on) }
+// 进首屏先自动呼出一次，让人看到面板长什么样；之后可以用把手 / 右边缘手动收放
+setTimeout(() => setMacOut(true), 900)
+
+let hoverTimer
+$('#macHot').addEventListener('mouseenter', () => { clearTimeout(hoverTimer); setMacOut(true) })
+$('#macGrip').addEventListener('click', () => setMacOut(!macPanel.classList.contains('out')))
+macScreen.addEventListener('mouseleave', () => {
+  clearTimeout(hoverTimer)
+  hoverTimer = setTimeout(() => setMacOut(false), 1400)
+})
+
+/* ============================================================================
+   第二幕：滚动驱动
+   ========================================================================= */
+const panelStory = createPanel({ initial: 'list', height: 520, tabs: true, toolbar: true })
+$('#storyPanel').append(panelStory)
+
+const blocks = [...document.querySelectorAll('.story__block')]
+const storyEl = $('#story')
+$('#progress').innerHTML = blocks.map((b) => `<b title="${b.dataset.label}"></b>`).join('')
+const bars = [...$('#progress').children]
+const STATE_MAP = { list: 'list', editor: 'editor', cmd: 'editor', search: 'search' }
+const isNarrow = () => innerWidth <= 1120
+
+function applyState(name) {
+  if (isNarrow()) return
+  if (name === 'cmd') { panelStory.__show('editor'); panelStory.__toggleCmd(true) }
+  else { panelStory.__toggleCmd(false); panelStory.__show(STATE_MAP[name] || 'list') }
+}
+
+let curIdx = -1
+function syncStory() {
+  if (isNarrow()) return
+  const rect = storyEl.getBoundingClientRect()
+  const span = storyEl.offsetHeight - innerHeight
+  const p = span > 0 ? Math.min(1, Math.max(0, -rect.top / span)) : 0
+  const i = Math.min(blocks.length - 1, Math.floor(p * blocks.length))
+  if (i === curIdx) return
+  curIdx = i
+  blocks.forEach((b, k) => b.classList.toggle('on', k === i))
+  bars.forEach((b, k) => b.classList.toggle('on', k === i))
+  applyState(blocks[i].dataset.state)
+}
+
+let raf = 0
+function onScroll() {
+  if (raf) return
+  raf = requestAnimationFrame(() => {
+    raf = 0
+    const inStory = scrollY > innerHeight * 0.6
+    const act = inStory ? 'story' : 'hero'
+    if (body.dataset.act !== act) body.dataset.act = act
+    syncStory()
+  })
+}
+addEventListener('scroll', onScroll, { passive: true })
+
+function resize() {
+  macPanel.querySelector('.ifp__body').style.height = macPanelH() + 'px'
+  panelStory.querySelector('.ifp__body').style.height = Math.max(300, Math.min(620, innerHeight - 200)) + 'px'
+  curIdx = -1
+  onScroll()
+}
+addEventListener('resize', resize)
+resize()
+onScroll()
+
+/* ---------- 揭示 ---------- */
+const io = new IntersectionObserver((es) => {
+  es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } })
+}, { threshold: 0.12 })
+document.querySelectorAll('.reveal').forEach((n, i) => {
+  setTimeout(() => n.classList.add('in'), 60 + i * 55)
+  io.observe(n)
+})
+</script>
+</body>
+</html>

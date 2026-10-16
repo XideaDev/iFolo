@@ -1,0 +1,389 @@
+/* ============================================================================
+   iFolo 面板头部 —— 六种「大重构」方案
+   ----------------------------------------------------------------------------
+   上一版（headers.css）是在「固定头部 + N 行堆叠」这个范式里做减法和重排。
+   这一版换范式：头部不再是一个固定的横向区块，而是
+     ① 完全消失，交给命令行
+     ② 缩成一颗浮岛，悬停才展开
+     ③ 变成光标处的径向菜单
+     ④ 永远只有一行，内容随状态变
+     ⑤ 整体翻转为左右两栏，chrome 全搬到左栏
+     ⑥ 溶解进正文，标题即 H1
+
+   统一用 .rx- 前缀，避免与 panel.css / headers.css 撞名。
+   ========================================================================= */
+
+/* ============================================================================
+   ① 命令行式 —— 零 chrome，全部靠打字
+   ----------------------------------------------------------------------------
+   灵感：Vim 的 :、Sublime 的 ⌘⇧P。没有按钮，只有一个输入行。
+   常驻头部高度：0。只在输入时出现一条 34px 的命令行。
+   ========================================================================= */
+.rx-cli .rx-prompt {
+  position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 6;
+  display: flex; align-items: center; gap: 8px;
+  height: 34px; padding: 0 11px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-popover);
+  opacity: 0; transform: translateY(8px); pointer-events: none;
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+.rx-cli.typing .rx-prompt { opacity: 1; transform: none; pointer-events: auto; }
+.rx-cli .rx-prompt .car { color: var(--accent); font-weight: 800; font-size: 13px; flex: 0 0 auto; }
+.rx-cli .rx-prompt .in { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-primary); }
+.rx-cli .rx-prompt .caret {
+  width: 1.5px; height: 14px; background: var(--accent); flex: 0 0 auto;
+  animation: rx-blink 1.1s steps(1) infinite;
+}
+@keyframes rx-blink { 0%, 50% { opacity: 1 } 50.01%, 100% { opacity: 0 } }
+
+/* 命令补全列表：贴在命令行上方 */
+.rx-cli .rx-ac {
+  position: absolute; left: 10px; right: 10px; bottom: 50px; z-index: 6;
+  background: var(--surface-raised); border: 1px solid var(--border-subtle);
+  border-radius: 11px; box-shadow: var(--shadow-popover); padding: 5px;
+  opacity: 0; transform: translateY(8px); pointer-events: none;
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+.rx-cli.typing .rx-ac { opacity: 1; transform: none; pointer-events: auto; }
+.rx-cli .rx-ac .it {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 9px; border-radius: 7px;
+  font-size: 12.5px; color: var(--text-secondary);
+}
+.rx-cli .rx-ac .it.on { background: var(--accent-subtle); color: var(--accent); font-weight: 650; }
+.rx-cli .rx-ac .it code {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--surface-sunken); color: var(--text-primary);
+  padding: 1px 5px; border-radius: 4px;
+}
+.rx-cli .rx-ac .it.on code { background: rgba(92,163,255,.18); color: var(--accent); }
+.rx-cli .rx-ac .it .d { margin-left: auto; font-size: 11px; color: var(--text-tertiary); }
+.rx-cli .rx-ac .hr { height: 1px; background: var(--border-subtle); margin: 4px 2px; }
+
+/* 空闲时的那句提示 */
+.rx-cli .rx-idle {
+  position: absolute; left: 0; right: 0; bottom: 12px; z-index: 5;
+  text-align: center; font-size: 11px; color: var(--text-disabled);
+  transition: opacity 180ms var(--ease-out);
+}
+.rx-cli.typing .rx-idle { opacity: 0; }
+
+/* ============================================================================
+   ② 浮岛式 —— 一颗胶囊浮在内容上，悬停展开成一整条
+   ----------------------------------------------------------------------------
+   灵感：iPhone 的灵动岛。空闲时极小，需要时才长大。
+   常驻头部高度：0（浮岛不占布局，浮在内容之上）。
+   ========================================================================= */
+.rx-island .rx-pill {
+  position: absolute; left: 50%; top: 10px; z-index: 7;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 7px;
+  height: 30px; padding: 0 13px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  box-shadow: 0 10px 26px -12px rgba(20, 22, 40, .34), 0 1px 2px rgba(16,24,40,.05);
+  font-size: 11.5px; font-weight: 650; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden;
+  transition: width 320ms var(--ease-out), height 320ms var(--ease-out),
+              border-radius 320ms var(--ease-out), padding 320ms var(--ease-out);
+  width: 168px;
+}
+.rx-island .rx-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success-fill); flex: 0 0 auto; }
+.rx-island .rx-pill .nm { overflow: hidden; text-overflow: ellipsis; }
+.rx-island .rx-pill .tail { margin-left: auto; display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.rx-island.open .rx-pill {
+  width: calc(100% - 20px); height: 74px; border-radius: 16px; padding: 0;
+  align-items: stretch;
+}
+
+/* 展开后的两层 */
+.rx-island .rx-card { display: none; flex-direction: column; width: 100%; }
+.rx-island.open .rx-card { display: flex; }
+.rx-island.open .rx-pill > .dot,
+.rx-island.open .rx-pill > .nm,
+.rx-island.open .rx-pill > .tail { display: none; }
+.rx-island .rx-card .r {
+  display: flex; align-items: center; gap: 8px; padding: 0 12px; min-width: 0;
+}
+.rx-island .rx-card .r.a { height: 38px; }
+.rx-island .rx-card .r.b { height: 36px; border-top: 1px solid var(--border-subtle); }
+.rx-island .rx-card .ttl { font-size: 13px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rx-island .rx-card .sub { font-size: 11px; color: var(--text-tertiary); flex: 0 0 auto; }
+.rx-island .rx-card .acts { margin-left: auto; display: flex; gap: 1px; flex: 0 0 auto; }
+
+/* 展开时正文整体下移，避免被浮岛盖住首行 */
+.rx-island .ifp__doc { padding-top: 52px; transition: padding-top 340ms var(--ease-out); }
+.rx-island.open .ifp__doc { padding-top: 98px; }
+
+/* 浮岛下面的暗示：内容从这里开始 */
+.rx-island .rx-scrim {
+  position: absolute; left: 0; right: 0; top: 0; height: 54px; z-index: 1;
+  background: linear-gradient(180deg, var(--surface) 30%, transparent);
+  pointer-events: none;
+}
+
+/* ============================================================================
+   ③ 径向菜单 —— 按住 ⌥ 在光标处弹出环状菜单
+   ----------------------------------------------------------------------------
+   灵感：Blender / Figma 的饼菜单。格式不再是一排按钮，而是一次空间手势。
+   常驻头部高度：0。菜单是光标处的临时浮层。
+   ========================================================================= */
+/* 扇区底色：--sector 必须先定义，否则 conic-gradient 整条失效（环会完全不可见） */
+.rx-radial { --sector: var(--surface-raised); }
+.rx-radial .rx-wheel {
+  position: absolute; left: 50%; top: 50%; z-index: 8;
+  width: 232px; height: 232px; margin: -116px 0 0 -116px;
+  opacity: 0; transform: scale(.86); pointer-events: none;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+.rx-radial.open .rx-wheel { opacity: 1; transform: none; pointer-events: auto; }
+/* 环：8 个 45° 扇区，扇区之间留 1.5° 缝 */
+.rx-radial .ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from -112.5deg,
+    var(--sector) 0deg 43.5deg, transparent 43.5deg 45deg,
+    var(--sector) 45deg 88.5deg, transparent 88.5deg 90deg,
+    var(--sector) 90deg 133.5deg, transparent 133.5deg 135deg,
+    var(--sector) 135deg 178.5deg, transparent 178.5deg 180deg,
+    var(--sector) 180deg 223.5deg, transparent 223.5deg 225deg,
+    var(--sector) 225deg 268.5deg, transparent 268.5deg 270deg,
+    var(--sector) 270deg 313.5deg, transparent 313.5deg 315deg,
+    var(--sector) 315deg 358.5deg, transparent 358.5deg 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 44px, #000 45px);
+  mask: radial-gradient(circle, transparent 44px, #000 45px);
+  filter: drop-shadow(0 16px 34px rgba(20, 22, 40, .3));
+}
+/* 高亮当前扇区：用一层被旋转的 conic 盖上去 */
+.rx-radial .hl {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from calc(var(--i, 0) * 45deg - 112.5deg),
+    var(--accent) 0deg 43.5deg, transparent 43.5deg 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 44px, #000 45px);
+  mask: radial-gradient(circle, transparent 44px, #000 45px);
+  opacity: 0; transition: opacity 140ms var(--ease-out);
+}
+.rx-radial .hl.on { opacity: .16; }
+/* 8 个条目：半径 74px 处 */
+.rx-radial .sp {
+  position: absolute; left: 50%; top: 50%;
+  width: 40px; height: 40px; margin: -20px 0 0 -20px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  --a: calc(-90deg + var(--i) * 45deg);
+  transform: rotate(var(--a)) translate(74px) rotate(calc(-1 * var(--a)));
+  color: var(--text-secondary); border-radius: 10px;
+  transition: color 140ms var(--ease-out);
+}
+.rx-radial .sp svg { width: 15px; height: 15px; }
+.rx-radial .sp span { font-size: 8.5px; font-weight: 700; white-space: nowrap; }
+.rx-radial .sp.on { color: var(--accent); }
+/* 圆心：当前块类型 */
+.rx-radial .hub {
+  position: absolute; left: 50%; top: 50%; width: 76px; height: 76px;
+  margin: -38px 0 0 -38px; border-radius: 50%;
+  background: var(--surface-raised); border: 1px solid var(--border-subtle);
+  box-shadow: 0 8px 20px -10px rgba(20, 22, 40, .34);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.rx-radial .hub .t { font-size: 12px; font-weight: 700; }
+.rx-radial .hub .s { font-size: 9px; color: var(--text-tertiary); }
+.rx-radial .rx-hint {
+  position: absolute; left: 0; right: 0; bottom: 12px; z-index: 5;
+  text-align: center; font-size: 11px; color: var(--text-disabled);
+}
+.rx-radial .rx-dim {
+  position: absolute; inset: 0; z-index: 7;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  backdrop-filter: blur(2px); opacity: 0; pointer-events: none;
+  transition: opacity 200ms var(--ease-out);
+}
+.rx-radial.open .rx-dim { opacity: 1; }
+
+/* ============================================================================
+   ④ 状态机单行 —— 永远只有一行，内容随状态变
+   ----------------------------------------------------------------------------
+   不是「把 N 行合并成几行」，而是承认：这 N 行本来就不会同时用。
+   一行 40px，永远。它是什么，取决于你现在在干什么。
+   ========================================================================= */
+.rx-morph .rx-row {
+  position: relative; flex: 0 0 auto; height: 40px; overflow: hidden;
+  border-bottom: 1px solid var(--border-subtle); background: var(--surface);
+}
+.rx-morph .rx-state {
+  position: absolute; inset: 0; display: flex; align-items: center; gap: 8px;
+  padding: 0 10px;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+  pointer-events: none;
+}
+.rx-morph .rx-state.on { opacity: 1; transform: none; pointer-events: auto; }
+.rx-morph .rx-state .ttl { font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rx-morph .rx-state .sub { font-size: 11px; color: var(--text-tertiary); flex: 0 0 auto; }
+.rx-morph .rx-state .acts { margin-left: auto; display: flex; gap: 1px; flex: 0 0 auto; }
+/* 状态切换器（原型专用，真机上是键盘触发） */
+.rx-morph .rx-switch {
+  position: absolute; left: 0; right: 0; bottom: 8px; z-index: 6;
+  display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;
+}
+.rx-morph .rx-switch b {
+  font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  background: var(--surface-sunken); color: var(--text-tertiary);
+  cursor: pointer; border: 1px solid transparent;
+}
+.rx-morph .rx-switch b.on { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-border); }
+/* 单行里嵌入的各种「脸」 */
+.rx-morph .field {
+  flex: 1 1 auto; display: flex; align-items: center; gap: 8px;
+  height: 28px; padding: 0 10px; border-radius: 8px;
+  background: var(--surface-sunken); border: 1px solid transparent;
+  font-size: 12px; color: var(--text-tertiary); min-width: 0;
+}
+.rx-morph .field.focus { background: var(--surface); border-color: var(--accent-border); box-shadow: 0 0 0 3px rgba(92,163,255,.16); color: var(--text-primary); }
+.rx-morph .field .caret { width: 1.5px; height: 14px; background: var(--accent); animation: rx-blink 1.1s steps(1) infinite; }
+
+/* ============================================================================
+   ⑤ 侧栏优先 —— 整个面板翻转为左右两栏，chrome 全搬到左栏
+   ----------------------------------------------------------------------------
+   不是「把标签挪到侧栏」，是连格式工具栏一起搬。纵向空间从此不再是稀缺资源。
+   ========================================================================= */
+.rx-rail { flex-direction: row; }
+.rx-rail .rail {
+  width: 46px; flex: 0 0 auto; display: flex; flex-direction: column;
+  align-items: center; gap: 3px; padding: 8px 0;
+  border-right: 1px solid var(--border-subtle); background: var(--surface-sunken);
+  overflow: hidden;
+  transition: width 260ms var(--ease-out);
+}
+.rx-rail.open .rail { width: 178px; align-items: stretch; padding: 8px 7px; }
+.rx-rail .rail .mk { display: flex; align-items: center; gap: 9px; padding: 4px 6px; margin-bottom: 5px; }
+.rx-rail .rail .mk svg { width: 17px; height: 17px; flex: 0 0 auto; }
+.rx-rail .rail .mk b { font-size: 12.5px; font-weight: 700; white-space: nowrap; opacity: 0; transition: opacity 160ms var(--ease-out); }
+.rx-rail.open .rail .mk b { opacity: 1; }
+.rx-rail .rail .it {
+  display: flex; align-items: center; gap: 9px; padding: 6px 7px; border-radius: 7px;
+  color: var(--text-secondary); white-space: nowrap; min-height: 30px;
+  transition: background var(--dur-hover);
+}
+.rx-rail .rail .it:hover { background: var(--surface); }
+.rx-rail .rail .it.on { background: var(--accent-subtle); color: var(--accent); }
+.rx-rail .rail .it svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.rx-rail .rail .it span { font-size: 12px; font-weight: 600; opacity: 0; transition: opacity 160ms var(--ease-out); }
+.rx-rail.open .rail .it span { opacity: 1; }
+.rx-rail .rail .grp {
+  font-size: 9px; font-weight: 800; letter-spacing: .08em; color: var(--text-disabled);
+  padding: 8px 7px 3px; opacity: 0; transition: opacity 160ms var(--ease-out);
+}
+.rx-rail.open .rail .grp { opacity: 1; }
+.rx-rail .rail .fmts { display: flex; flex-direction: column; gap: 2px; }
+.rx-rail .rail .fmts .it b {
+  font-size: 11.5px; width: 15px; text-align: center; flex: 0 0 auto;
+}
+.rx-rail .rail .fmts .it b.b { font-weight: 800; }
+.rx-rail .rail .fmts .it b.i { font-family: Georgia, serif; font-style: italic; }
+.rx-rail .rail .fmts .it b.u { text-decoration: underline; }
+.rx-rail .rail .fmts .it b.s { text-decoration: line-through; }
+.rx-rail .vcol { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.rx-rail .vcol .bare {
+  height: 30px; flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+  padding: 0 12px; font-size: 11.5px; color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.rx-rail .vcol .bare .nm { color: var(--text-primary); font-weight: 650; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ============================================================================
+   ⑥ 文档即界面 —— 头部溶解进正文
+   ----------------------------------------------------------------------------
+   没有头部。标题就是 H1（可直接编辑），标签变成正文顶部的卡片横滑条，
+   工具栏只在光标所在段落出现。面板上除了内容，什么都没有。
+   ========================================================================= */
+.rx-inline .rx-doc { padding: 16px 18px 18px; position: relative; }
+.rx-inline .rx-title {
+  font-size: 24px; font-weight: 700; letter-spacing: -.03em; line-height: 1.2;
+  margin: 0 0 4px; outline: none;
+}
+.rx-inline .rx-meta {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: var(--text-tertiary); margin-bottom: 14px;
+}
+.rx-inline .rx-meta .ok { display: inline-flex; align-items: center; gap: 4px; }
+.rx-inline .rx-meta .ok i { width: 5px; height: 5px; border-radius: 50%; background: var(--success-fill); }
+/* 卡片式标签：不是标签页条，是正文的一部分 */
+.rx-inline .rx-cards { display: flex; gap: 7px; margin-bottom: 18px; overflow: hidden; }
+.rx-inline .rx-card {
+  flex: 0 0 auto; width: 116px; padding: 8px 9px 9px; border-radius: 9px;
+  background: var(--surface-sunken); border: 1px solid transparent;
+  text-align: left;
+}
+.rx-inline .rx-card.on { background: var(--accent-subtle); border-color: var(--accent-border); }
+.rx-inline .rx-card .t {
+  font-size: 11px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block;
+}
+.rx-inline .rx-card.on .t { color: var(--accent); }
+.rx-inline .rx-card .s {
+  font-size: 9.5px; color: var(--text-tertiary); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
+}
+.rx-inline .rx-card.add {
+  width: 34px; display: flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary); font-size: 14px; font-weight: 700;
+}
+/* 光标处的浮动工具条 */
+.rx-inline .rx-caretbar {
+  position: absolute; z-index: 6;
+  display: flex; align-items: center; gap: 1px; padding: 3px 5px;
+  background: var(--surface-raised); border: 1px solid var(--border-subtle);
+  border-radius: 9px; box-shadow: var(--shadow-popover);
+  opacity: 0; transform: translateY(4px); pointer-events: none;
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+.rx-inline .rx-caretbar.on { opacity: 1; transform: none; pointer-events: auto; }
+.rx-inline .rx-caretbar .f {
+  width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; color: var(--text-secondary);
+}
+.rx-inline .rx-caretbar .f:hover { background: var(--surface-sunken); }
+.rx-inline .rx-caretbar .f.b { font-weight: 800; color: var(--text-primary); }
+.rx-inline .rx-caretbar .f.i { font-family: Georgia, serif; font-style: italic; font-size: 13px; }
+.rx-inline .rx-caretbar .f.u { text-decoration: underline; text-underline-offset: 2px; }
+.rx-inline .rx-caretbar .f.s { text-decoration: line-through; }
+.rx-inline .rx-caretbar .f.mono { font-family: var(--font-mono); font-size: 9.5px; }
+.rx-inline .rx-caretbar .sp { width: 1px; height: 13px; background: var(--border-subtle); margin: 0 3px; }
+
+/* ============================================================================
+   原型舞台
+   ========================================================================= */
+.rx-stage { --ifp-op: 1; position: relative; }
+.rx-stage .ifp__body { position: relative; overflow-y: auto; overscroll-behavior: contain; }
+.rx-stage .ifp__body::-webkit-scrollbar { width: 6px; }
+.rx-stage .ifp__body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* 面板内通用的行零件（各方案复用） */
+.rx-logo { width: 17px; height: 17px; flex: 0 0 auto; display: flex; }
+.rx-logo svg { width: 17px; height: 17px; display: block; }
+.rx-ib {
+  width: 24px; height: 24px; border-radius: 7px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center; color: var(--text-secondary);
+}
+.rx-ib:hover { background: var(--surface-sunken); }
+.rx-ib.acc { background: var(--accent); color: #fff; }
+.rx-ib svg { width: 13px; height: 13px; display: block; }
+.rx-sep { width: 1px; height: 13px; background: var(--border-subtle); margin: 0 3px; flex: 0 0 auto; }
+.rx-fmt {
+  width: 22px; height: 22px; border-radius: 6px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; color: var(--text-secondary);
+}
+.rx-fmt:hover { background: var(--surface-sunken); }
+.rx-fmt.b { font-weight: 800; color: var(--text-primary); }
+.rx-fmt.i { font-family: Georgia, serif; font-style: italic; font-size: 13px; }
+.rx-fmt.u { text-decoration: underline; text-underline-offset: 2px; }
+.rx-fmt.s { text-decoration: line-through; }
+.rx-fmt.mono { font-family: var(--font-mono); font-size: 9.5px; }
+.rx-fmt svg { width: 12px; height: 12px; display: block; }
+.rx-tab {
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto;
+  font-size: 10.5px; font-weight: 650; padding: 3px 8px; border-radius: 6px;
+  background: var(--surface-sunken); color: var(--text-secondary); white-space: nowrap;
+}
+.rx-tab.on { background: var(--accent-subtle); color: var(--accent); }
+.rx-tab i { font-style: normal; opacity: .5; font-size: 11px; line-height: 1; }

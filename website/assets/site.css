@@ -1,0 +1,149 @@
+/* ============================================================================
+   官网共用基础样式
+   ----------------------------------------------------------------------------
+   只放三版方案都要用的东西：重置、排版、按钮、区块、滚动揭示动画。
+   各版自己的版式写在各自 HTML 的 <style> 里。
+   ========================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  background: var(--ink-50);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+img, svg { display: block; max-width: 100%; }
+
+a { color: inherit; text-decoration: none; }
+
+::selection { background: var(--blue-200); color: var(--blue-900); }
+
+/* ---------- 环境底色：品牌三色的极低饱和氛围 ----------
+   产品面板是真 vibrancy 材质，要看出「透」就必须有底纹。
+   所以这里用品牌色做柔和的氛围光，而不是纯白或彩虹渐变。 */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(52rem 34rem at 8% -6%,  rgba(92, 163, 255, .30), transparent 62%),
+    radial-gradient(42rem 30rem at 96% 8%,  rgba(255, 165, 31, .22), transparent 60%),
+    radial-gradient(46rem 34rem at 62% 104%, rgba(105, 207, 61, .18), transparent 62%),
+    linear-gradient(168deg, #EEF3FB 0%, #F7F4F0 52%, #EFF4EC 100%);
+}
+.ambient::after {
+  /* 细颗粒，避免大面积渐变出现色带 */
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: .5;
+  background-image: radial-gradient(rgba(16, 24, 40, .045) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+.ambient--calm {
+  background:
+    radial-gradient(50rem 30rem at 12% -10%, rgba(92, 163, 255, .20), transparent 62%),
+    radial-gradient(38rem 26rem at 94% 4%,  rgba(255, 165, 31, .13), transparent 58%),
+    linear-gradient(170deg, #F4F7FC 0%, #FBF9F6 58%, #F4F8F1 100%);
+}
+
+/* ---------- 容器 ---------- */
+.wrap { width: min(1180px, 100% - 48px); margin-inline: auto; }
+.wrap--narrow { width: min(880px, 100% - 48px); margin-inline: auto; }
+
+/* ---------- 排版 ---------- */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-500);
+}
+.eyebrow i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue-500); }
+
+.h-display {
+  font-size: clamp(38px, 5.6vw, 68px);
+  font-weight: 700; line-height: 1.06; letter-spacing: -.035em;
+  margin: 0;
+}
+.h-1 {
+  font-size: clamp(30px, 3.6vw, 46px);
+  font-weight: 700; line-height: 1.14; letter-spacing: -.03em;
+  margin: 0;
+}
+.h-2 {
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 700; line-height: 1.22; letter-spacing: -.025em;
+  margin: 0;
+}
+.h-3 { font-size: 17px; font-weight: 650; line-height: 1.34; letter-spacing: -.015em; margin: 0; }
+.lead {
+  font-size: clamp(15px, 1.35vw, 18px);
+  line-height: 1.66; color: var(--ink-600); margin: 0;
+}
+.body { font-size: 14.5px; line-height: 1.72; color: var(--ink-600); margin: 0; }
+.small { font-size: 12.5px; line-height: 1.6; color: var(--ink-500); }
+.mono { font-family: var(--font-mono); font-size: .93em; }
+
+/* 品牌色文字（都用可读档，不用 500 标准色） */
+.t-blue   { color: var(--blue-700); }
+.t-orange { color: var(--orange-800); }
+.t-green  { color: var(--green-800); }
+
+.hl {
+  background: linear-gradient(transparent 62%, var(--orange-200) 62%);
+  padding: 0 1px;
+}
+.hl-blue {
+  background: linear-gradient(transparent 62%, var(--blue-200) 62%);
+  padding: 0 1px;
+}
+
+/* ---------- 按钮 ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 42px; padding: 0 20px; border-radius: 11px;
+  font-family: inherit; font-size: 14px; font-weight: 650;
+  border: 1px solid transparent; cursor: pointer;
+  transition: transform var(--dur-hover), box-shadow var(--dur-hover), background var(--dur-hover);
+  white-space: nowrap;
+}
+.btn--primary { background: var(--blue-700); color: #fff; box-shadow: 0 8px 20px -10px rgba(9, 101, 220, .7); }
+.btn--primary:hover { background: var(--blue-800); transform: translateY(-1px); box-shadow: 0 12px 26px -10px rgba(9, 101, 220, .75); }
+.btn--ghost { background: rgba(255, 255, 255, .72); color: var(--ink-800); border-color: var(--ink-200); backdrop-filter: blur(10px); }
+.btn--ghost:hover { background: #fff; border-color: var(--ink-300); transform: translateY(-1px); }
+.btn--sm { height: 34px; padding: 0 14px; font-size: 13px; border-radius: 9px; }
+
+/* ---------- 卡片 ---------- */
+.card {
+  background: rgba(255, 255, 255, .78);
+  border: 1px solid rgba(255, 255, 255, .8);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 18px 40px -26px rgba(16, 24, 40, .28);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* 键帽 */
+kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  font-family: var(--font-ui); font-size: 11.5px; font-weight: 650;
+  color: var(--ink-700); background: #fff;
+  border: 1px solid var(--ink-200); border-bottom-width: 2px;
+  border-radius: 5px; line-height: 1;
+}
+
+/* ---------- 滚动揭示 ---------- */
+.reveal { opacity: 0; transform: translateY(18px); }
+.reveal.in { opacity: 1; transform: none; transition: opacity 620ms var(--ease-out), transform 620ms var(--ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal.in { opacity: 1 !important; transform: none !important; transition: none !important; }
+  html { scroll-behavior: auto !important; }
+}

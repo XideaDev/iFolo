@@ -14,7 +14,7 @@ const html = readFileSync(htmlPath, 'utf8')
 // 所以这里同时写上 defer。
 const fixed = html.replace(
     /<script type="module" crossorigin src="([^"]+)"><\/script>/,
-    '<script defer src="$1"></script>',
+    `<script defer src="$1?v=${Date.now()}"></script>`,
 )
 
 if (fixed === html) {

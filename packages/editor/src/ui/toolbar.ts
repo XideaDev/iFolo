@@ -9,11 +9,11 @@
 
 import { EditorView } from 'prosemirror-view'
 import { EditorState } from 'prosemirror-state'
-import { toggleMark, setBlockType, chainCommands } from 'prosemirror-commands'
+import { toggleMark, setBlockType, wrapIn, lift } from 'prosemirror-commands'
 import { MarkType } from 'prosemirror-model'
 import { nodes, marks } from '../schema'
+import { NoteMeta, FolderItem } from '../storage'
 import { el, positionMenu, ICONS } from './dom'
-
 interface BlockOption {
   label: string
   match: (state: EditorState) => boolean
@@ -23,8 +23,13 @@ interface BlockOption {
 const BLOCK_OPTIONS: BlockOption[] = [
   {
     label: '正文',
-    match: (s) => s.selection.$from.parent.type.name === 'paragraph',
-    apply: (v) => setBlockType(nodes.paragraph)(v.state, v.dispatch, v),
+    match: (s) => s.selection.$from.parent.type.name === 'paragraph' && !hasAncestor(s, 'blockquote'),
+    apply: (v) => {
+      if (hasAncestor(v.state, 'blockquote')) {
+        lift(v.state, v.dispatch, v)
+      }
+      setBlockType(nodes.paragraph)(v.state, v.dispatch, v)
+    },
   },
   {
     label: '标题 1',
@@ -45,8 +50,11 @@ const BLOCK_OPTIONS: BlockOption[] = [
     label: '引用',
     match: (s) => hasAncestor(s, 'blockquote'),
     apply: (v) => {
-      const cmd = chainCommands(setBlockType(nodes.paragraph))
-      cmd(v.state, v.dispatch, v)
+      if (hasAncestor(v.state, 'blockquote')) {
+        lift(v.state, v.dispatch, v)
+      } else {
+        wrapIn(nodes.blockquote)(v.state, v.dispatch, v)
+      }
     },
   },
   {
@@ -79,6 +87,11 @@ const TEXT_COLORS = [
 ]
 
 const EMOJIS = ['✅', '⚠️', '💡', '📌', '🔥', '⭐️', '❓', '❗️', '📝', '🎯', '🚀', '🐛', '📎', '🔗', '⏰', '☕️']
+export interface ToolbarOptions {
+  getNote?: () => NoteMeta | null
+  getFolders?: () => FolderItem[]
+  onSetFolder?: (folderId: string | null) => Promise<void> | void
+}
 
 export class Toolbar {
   readonly dom: HTMLElement
@@ -87,7 +100,7 @@ export class Toolbar {
   private markButtons: { type: MarkType; btn: HTMLButtonElement }[] = []
   private popover: HTMLElement | null = null
 
-  constructor(private view: EditorView) {
+  constructor(private view: EditorView, private opts?: ToolbarOptions) {
     this.blockBtn = el('button', { class: 'toolbar__block', type: 'button' }) as HTMLButtonElement
     this.blockLabel = el('span', {}, ['正文'])
     this.blockBtn.append(this.blockLabel, el('span', { class: 'toolbar__caret' }, ['▾']))
@@ -109,7 +122,7 @@ export class Toolbar {
       this.actionButton(ICONS.color, '文字颜色', (btn) => this.openColorMenu(btn)),
       this.actionButton(ICONS.highlight, '高亮', () => this.toggleHighlight()),
       this.actionButton(ICONS.emoji, '表情符号', (btn) => this.openEmojiMenu(btn), 'toolbar__btn--optional'),
-      this.actionButton(ICONS.dots, '清除格式', () => this.clearFormatting(), 'toolbar__more'),
+      this.actionButton(ICONS.dots, '更多选项 (文件分类 / 清除格式)', (btn) => this.openMoreMenu(btn), 'toolbar__more'),
     ])
   }
 
@@ -282,11 +295,74 @@ export class Toolbar {
     toggleMark(marks.highlight)(this.view.state, this.view.dispatch, this.view)
     this.view.focus()
   }
-
   private clearFormatting() {
     const { from, to } = this.view.state.selection
     this.view.dispatch(this.view.state.tr.removeMark(from, to))
     this.view.focus()
+  }
+
+  private openMoreMenu(anchor: HTMLButtonElement) {
+    if (this.popover) {
+      this.closePopover()
+      return
+    }
+    const currentNote = this.opts?.getNote?.()
+    const folders = (this.opts?.getFolders?.() ?? []).filter((f) => !f.isSystem)
+
+    const menu = el('div', { class: 'menu toolbar-more-menu', style: 'min-width: 136px;' })
+    menu.append(el('div', { class: 'menu__title' }, ['文件分类']))
+
+    const isUnclassified = !currentNote?.folderId
+    const defaultItem = el('button', {
+      class: `menu__item${isUnclassified ? ' menu__item--active' : ''}`,
+      type: 'button',
+    }, [
+      el('span', { class: 'menu__icon' }, [isUnclassified ? '✓' : '']),
+      el('span', {}, ['未分类 / 默认']),
+    ])
+    defaultItem.addEventListener('mousedown', async (e) => {
+      e.preventDefault()
+      await this.opts?.onSetFolder?.(null)
+      this.closePopover()
+    })
+    menu.append(defaultItem)
+
+    for (const f of folders) {
+      const isCurrent = currentNote?.folderId === f.id
+      const item = el('button', {
+        class: `menu__item${isCurrent ? ' menu__item--active' : ''}`,
+        type: 'button',
+      }, [
+        el('span', { class: 'menu__icon' }, [isCurrent ? '✓' : '']),
+        el('span', {}, [f.name]),
+      ])
+      item.addEventListener('mousedown', async (e) => {
+        e.preventDefault()
+        await this.opts?.onSetFolder?.(f.id)
+        this.closePopover()
+      })
+      menu.append(item)
+    }
+
+    menu.append(el('div', { style: 'height: 1px; background: var(--border-subtle); margin: 3px 0;' }))
+
+    const clearItem = el('button', {
+      class: 'menu__item',
+      type: 'button',
+      title: '清除所选区域的文本格式',
+    }, [
+      el('span', { class: 'menu__icon', style: 'font-size: 11px;' }, ['⌫']),
+      el('span', {}, ['清除格式']),
+    ])
+    clearItem.addEventListener('mousedown', (e) => {
+      e.preventDefault()
+      this.clearFormatting()
+      this.closePopover()
+    })
+    menu.append(clearItem)
+
+    this.popover = menu
+    positionMenu(menu, anchor.getBoundingClientRect(), true)
   }
 
   destroy() {

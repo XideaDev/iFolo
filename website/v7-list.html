@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iFolo 列表页头部 · 六种方案</title>
+<link rel="stylesheet" href="./assets/tokens.css">
+<link rel="stylesheet" href="./assets/panel.css">
+<link rel="stylesheet" href="./assets/list.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; font-family: var(--font-ui); color: var(--text-primary);
+  background: var(--canvas); -webkit-font-smoothing: antialiased; padding: 0 0 90px;
+}
+a { color: inherit; text-decoration: none; }
+code { font-family: var(--font-mono); font-size: .92em; background: var(--surface-sunken); padding: 1px 5px; border-radius: 5px; }
+.wrap { width: min(1180px, 100% - 48px); margin-inline: auto; }
+.page-bg {
+  position: fixed; inset: 0; z-index: -1;
+  background: radial-gradient(70% 44% at 50% -8%, rgba(92, 163, 255, .11), transparent 70%), var(--canvas);
+}
+
+.head { padding: 66px 0 0; }
+.head h1 { margin: 16px 0 0; font-size: clamp(28px, 3.6vw, 44px); font-weight: 700; letter-spacing: -.032em; line-height: 1.14; }
+.head .lead { margin: 18px 0 0; max-width: 720px; font-size: clamp(15px, 1.3vw, 17px); line-height: 1.68; color: var(--text-secondary); }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-tertiary); }
+.eyebrow i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue-500); }
+
+/* 问题清单 */
+.issues { margin-top: 34px; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 34px; align-items: start; }
+.issue-list { display: flex; flex-direction: column; gap: 7px; }
+.ir {
+  display: flex; align-items: flex-start; gap: 11px;
+  padding: 12px 15px; border-radius: 11px;
+  background: var(--surface); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-raised);
+}
+.ir .n { font-family: var(--font-mono); font-size: 11px; font-weight: 800; color: var(--warn); flex: 0 0 auto; margin-top: 1px; }
+.ir .t { font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.ir .t b { color: var(--text-primary); }
+.issue-panel { position: sticky; top: 24px; }
+
+/* 原型网格 */
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px 32px; margin-top: 48px; }
+.proto { display: flex; flex-direction: column; }
+.proto__hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 5px; }
+.proto__no { font-family: var(--font-mono); font-size: 12px; font-weight: 800; color: var(--accent); flex: 0 0 auto; }
+.proto__nm { font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+.proto__tag { margin-left: auto; font-size: 10.5px; font-weight: 750; padding: 3px 9px; border-radius: 999px; background: var(--success-soft); color: var(--success); flex: 0 0 auto; }
+.proto__ds { font-size: 13px; line-height: 1.62; color: var(--text-secondary); margin: 0 0 16px; min-height: 60px; }
+.proto__stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.proto__ft { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.pf { display: flex; gap: 8px; font-size: 12.5px; line-height: 1.6; color: var(--text-secondary); }
+.pf b { flex: 0 0 auto; font-size: 10px; font-weight: 800; padding: 3px 7px; border-radius: 5px; height: 18px; display: inline-flex; align-items: center; }
+.pf b.g { background: var(--success-soft); color: var(--success); }
+.pf b.o { background: var(--warn-soft); color: var(--warn); }
+.pf b.n { background: var(--surface-sunken); color: var(--text-secondary); }
+
+.ctrl { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.ctrl b {
+  font-size: 10.5px; font-weight: 700; padding: 4px 11px; border-radius: 999px; cursor: pointer;
+  background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border-subtle);
+}
+.ctrl b:hover { border-color: var(--border-strong); }
+.ctrl b.on { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-border); }
+
+/* 对照表 */
+.cmp { margin-top: 72px; }
+.cmp table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-raised); }
+.cmp th, .cmp td { padding: 13px 15px; text-align: left; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+.cmp thead th { font-size: 11.5px; font-weight: 700; color: var(--text-tertiary); background: var(--surface-sunken); }
+.cmp tbody tr:last-child td { border-bottom: none; }
+.cmp td:first-child { font-weight: 650; white-space: nowrap; }
+.cmp .num { font-family: var(--font-mono); font-weight: 700; white-space: nowrap; }
+.cmp .best { color: var(--success); }
+.cmp .rec { background: var(--accent-subtle); }
+
+.foot { margin-top: 60px; padding-top: 30px; border-top: 1px solid var(--border-subtle); font-size: 13px; line-height: 1.7; color: var(--text-tertiary); }
+
+@media (max-width: 1120px) {
+  .issues { grid-template-columns: minmax(0, 1fr); }
+  .issue-panel { position: static; display: flex; justify-content: center; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .cmp { overflow-x: auto; }
+  .cmp table { min-width: 800px; }
+}
+</style>
+</head>
+<body>
+<div class="page-bg"></div>
+
+<div class="wrap head">
+  <span class="eyebrow"><i></i>列表页（首页）头部 · 设计探索</span>
+  <h1>问题不在高度，在重复</h1>
+  <p class="lead">
+    列表页头部只有 <b>2 行 / 76px</b>，比编辑页（5 行 / 172px）轻得多。所以这里不能用「减行」的思路——
+    真正的问题是：<b>搜索被重复了两次</b>、<b>标题永远不变却占着位置</b>、
+    以及<b> 11 条笔记平铺，没有任何结构</b>。
+  </p>
+
+  <div class="issues">
+    <div class="issue-list" id="issueList"></div>
+    <div class="issue-panel"><div id="baseline"></div></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="wrap cmp">
+  <h2 style="margin:0 0 18px;font-size:20px;font-weight:700;letter-spacing:-.02em">横向对照</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:126px">方案</th>
+        <th style="width:76px">头部高度</th>
+        <th style="width:150px">搜索放在哪</th>
+        <th>最大的好处</th>
+        <th>代价 / 风险</th>
+      </tr>
+    </thead>
+    <tbody id="cmpBody"></tbody>
+  </table>
+</div>
+
+<div class="wrap foot">
+  面板宽度按真机 448px 复刻，列表区高度 430px。列表数据按真机 11 条笔记复刻，
+  按真实时间补上了分组。编辑页头部的两页方案见
+  <a href="./v5-headers.html" style="color:var(--accent)">v5</a> 与
+  <a href="./v6-radical.html" style="color:var(--accent)">v6</a>。
+</div>
+
+<script type="module">
+import { LOGO } from './assets/panel.js'
+
+/* ---------- 图标 ---------- */
+const S = (p, w = '1.7') => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round">${p}</svg>`
+const I = {
+  search: S('<circle cx="7" cy="7" r="4.3"/><path d="M10.3 10.3 14 14"/>'),
+  filter: S('<path d="M2.6 4.4h10.8M4.6 8h6.8M6.6 11.6h2.8"/>'),
+  plus: S('<path d="M8 3.4v9.2M3.4 8h9.2"/>', '2'),
+  doc: S('<path d="M4 2.6h5.4L13 6.2v7.2H4z"/><path d="M9.2 2.6v3.8H13"/>'),
+  bolt: S('<path d="M9 2.2 4.4 8.9h3.2l-.6 4.9 4.6-6.7H8.4z"/>', '1.7'),
+  bell: S('<path d="M4.6 7.2a3.4 3.4 0 0 1 6.8 0v2.4l1 1.8H3.6l1-1.8z"/><path d="M6.7 12.7a1.4 1.4 0 0 0 2.6 0"/>'),
+  clock: S('<circle cx="8" cy="8" r="5.4"/><path d="M8 4.8V8l2.2 1.4"/>'),
+  star: S('<path d="M8 2.6l1.7 3.5 3.8.5-2.8 2.7.7 3.8L8 11.3 4.6 13.1l.7-3.8L2.5 6.6l3.8-.5z"/>'),
+  tag: S('<path d="M8.4 2.6H13v4.6l-6 6-4.6-4.6z"/><circle cx="10.6" cy="5" r="1"/>'),
+  trash: S('<path d="M3.4 5.2h9.2M6.4 5.2V3.8h3.2v1.4M4.6 5.2l.7 7.4h5.4l.7-7.4"/>'),
+  more: S('<circle cx="3.6" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1.1" fill="currentColor" stroke="none"/><circle cx="12.4" cy="8" r="1.1" fill="currentColor" stroke="none"/>'),
+}
+
+/* ---------- 数据：11 条，按真实时间补上分组 ---------- */
+const GROUPS = [
+  ['今天', [
+    { k: 'bolt', t: '无标题', tm: '39 分钟前', s: '空白笔记' },
+    { k: 'doc', t: '然后根据fi…', tm: '42 分钟前', s: '空白笔记' },
+    { k: 'bolt', t: '无标题', tm: '46 分钟前', s: '空白笔记', on: 1 },
+    { k: 'doc', t: '同步层的重构计划', tm: '1 小时前', s: '把同步拆成「正文」与「附件」两条独立通道。附件走对象存储，正…' },
+  ]],
+  ['昨天', [
+    { k: 'doc', t: '你好的话大海俊杰是姐夫', tm: '昨天', s: '放姐夫宋哥你哈觉大海 看姐夫水电' },
+    { k: 'doc', t: '水电改水电发', tm: '昨天', s: '放水电发大叔水电放水电发', tags: [['等等', 'n'], ['333', 'n'], ['444', 'n'], ['快结婚3', 'g']] },
+    { k: 'bolt', t: '无标题', tm: '昨天', s: '4444' },
+  ]],
+  ['本周', [
+    { k: 'doc', t: '水电发放水电放水电发', tm: '周三', s: '发发发放水电放水电' },
+    { k: 'doc', t: '欢迎使用 iFolo', tm: '周三', s: '把指针移到屏幕右边缘，或按 ⌥⌘N 呼出面板。' },
+    { k: 'bolt', t: '得到的', tm: '周二', s: '女v' },
+  ]],
+  ['更早', [
+    { k: 'bell', t: '计划竣工后', tm: '23 小时前', s: '…' },
+  ]],
+]
+
+const rowHTML = (n, withTime = true) => `
+<div class="ifp__row${n.on ? ' on' : ''}">
+  <div class="ifp__rt">
+    <span class="ifp__kind ${n.k === 'bolt' ? 'q' : n.k === 'bell' ? 'r' : 'n'}">${I[n.k]}</span>
+    <b>${n.t}</b>
+    ${withTime ? `<span class="t">${n.tm}</span>` : ''}
+  </div>
+  <div class="ifp__rs">${n.s}</div>
+  ${n.tags ? `<div class="ifp__tags">${n.tags.map(([t, k]) => `<span class="ifp__tag ${k}">${t}</span>`).join('')}</div>` : ''}
+</div>`
+
+// 平铺（现状）
+const LIST_FLAT = `<div class="ifp__list">${GROUPS.flatMap(([, ns]) => ns).map((n) => rowHTML(n)).join('')}</div>`
+// 带时间分组
+const LIST_GROUPED = GROUPS.map(([label, ns]) => `
+  <div class="ls-grp">${label}<i>${ns.length}</i></div>
+  ${ns.map((n) => rowHTML(n)).join('')}`).join('')
+
+/* ============================================================================
+   ① 搜索即头部
+   ========================================================================= */
+const P1 = `
+<div class="ifp ls-stage ls ls--search">
+  <div class="ls-bar">
+    <span class="mk">${LOGO}</span>
+    <span class="field on">${I.search}<span>搜索笔记标题、内容或自然语言意图…</span><span class="caret"></span></span>
+    <span class="add">${I.plus}</span>
+  </div>
+  <div class="ifp__body" style="height:430px">${LIST_FLAT}</div>
+</div>`
+
+/* ============================================================================
+   ② 单行 + 时间分组
+   ========================================================================= */
+const P2 = `
+<div class="ifp ls-stage ls ls--one">
+  <div class="ls-bar">
+    <span class="mk">${LOGO}</span>
+    <span class="ttl">全部笔记</span><span class="cnt">11</span>
+    <span class="acts">
+      <span class="ib">${I.search}</span>
+      <span class="ib">${I.filter}</span>
+      <span class="ib acc">${I.plus}</span>
+    </span>
+  </div>
+  <div class="ifp__body" style="height:430px">${LIST_GROUPED}</div>
+</div>`
+
+/* ============================================================================
+   ③ 抽屉筛选
+   ========================================================================= */
+const P3 = `
+<div class="ifp ls-stage ls ls--drawer">
+  <div class="ls-bar">
+    <span class="mk">${LOGO}</span>
+    <span class="ttl">全部笔记</span><span class="cnt">11</span>
+    <span class="acts">
+      <span class="ib">${I.search}</span>
+      <span class="ib on">${I.filter}</span>
+      <span class="ib acc">${I.plus}</span>
+    </span>
+  </div>
+  <div class="drawer"><div class="in">
+    <div class="lb">类型</div>
+    <div class="chips"><span class="ch on">全部</span><span class="ch">快速</span><span class="ch">笔记</span><span class="ch">含待办</span></div>
+    <div class="lb">标签</div>
+    <div class="chips"><span class="ch">等等</span><span class="ch">333</span><span class="ch">444</span><span class="ch">快结婚3</span></div>
+    <div class="lb">时间</div>
+    <div class="chips"><span class="ch">今天</span><span class="ch">本周</span><span class="ch">更早</span></div>
+    <div class="ft"><span class="n">11 条 → 4 条</span><span class="go">应用</span></div>
+  </div></div>
+  <div class="ifp__body" style="height:430px">${LIST_GROUPED}</div>
+</div>`
+
+/* ============================================================================
+   ④ 侧栏优先
+   ========================================================================= */
+const P4 = `
+<div class="ifp ls-stage ls ls--rail">
+  <div class="rail">
+    <div class="mk">${LOGO}<b>iFolo</b></div>
+    <div class="it on">${I.clock}最近<span class="n">11</span></div>
+    <div class="it">${I.doc}全部笔记<span class="n">11</span></div>
+    <div class="it">${I.star}置顶<span class="n">2</span></div>
+    <div class="it">${I.bell}含待办<span class="n">1</span></div>
+    <div class="grp">标签</div>
+    <div class="it">${I.tag}等等</div>
+    <div class="it">${I.tag}快结婚3</div>
+    <div class="grp">其他</div>
+    <div class="it">${I.trash}回收站</div>
+  </div>
+  <div class="vcol">
+    <div class="bare">最近<span class="n">11</span>
+      <span class="acts"><span class="ib">${I.search}</span><span class="ib acc">${I.plus}</span></span>
+    </div>
+    <div class="ifp__body" style="height:430px">${LIST_GROUPED}</div>
+  </div>
+</div>`
+
+/* ============================================================================
+   ⑤ 浮岛列表
+   ========================================================================= */
+const P5 = `
+<div class="ifp ls-stage ls ls--island">
+  <div class="ifp__body" style="height:430px">
+    <div class="pill">
+      <span class="dot"></span><span class="nm">全部笔记 · 11</span>
+      <span class="tail">${I.search}</span>
+      <div class="card">
+        <div class="r a"><span class="ttl">全部笔记</span><span class="cnt">11</span>
+          <span style="margin-left:auto;display:flex;gap:1px">${I.plus}</span>
+        </div>
+        <div class="r b"><span class="field">${I.search}<span>搜索笔记标题、内容或自然语言意图…</span></span></div>
+        <div class="r c" style="height:auto;padding:0">
+          <div class="chips" style="padding:8px 12px 9px">
+            <span class="ch on">全部</span><span class="ch">快速</span><span class="ch">笔记</span><span class="ch">含待办</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="list-pad">${LIST_GROUPED}</div>
+  </div>
+</div>`
+
+/* ============================================================================
+   ⑥ 时间轴
+   ========================================================================= */
+const P6 = `
+<div class="ifp ls-stage ls ls--tl">
+  <div class="sticky" data-sticky>今天<i>4 条</i></div>
+  <div class="ifp__body" style="height:430px" data-tlbody>
+    ${GROUPS.map(([label, ns]) => `
+      <div class="day">${label}</div>
+      ${ns.map((n, i) => `
+        <div class="row${i === 0 ? ' first' : ''}${i === ns.length - 1 ? ' last' : ''}">${rowHTML(n, false)}</div>`).join('')}
+    `).join('')}
+  </div>
+  <div class="fab">${I.plus}</div>
+</div>`
+
+/* ============================================================================
+   方案清单
+   ========================================================================= */
+const SCHEMES = [
+  {
+    no: '①', id: 'l1', name: '搜索即头部', html: P1, h: 46,
+    tag: '一行 46px',
+    ds: '顶栏与搜索框合成一个——<b>整个头部就是一个搜索框</b>。logo 变成搜索框的前导图标，＋ 变成后置动作。不再有「搜索图标 + 搜索框」的重复。',
+    pros: [['g', '消除重复'], ['n', '同一个功能只出现一次；搜索从「两步」变成「一步」']],
+    cons: [['o', '代价'], ['n', '标题消失了，看不到「全部笔记」；需要靠列表首项或空态来说明这是哪里']],
+    search: '就是头部本身', benefit: '同一个功能只出现一次，搜索零距离', risk: '标题消失，位置感变弱',
+  },
+  {
+    no: '②', id: 'l2', name: '单行 + 时间分组', html: P2, h: 40,
+    tag: '省 36px',
+    ds: '头部压到一行 40px，搜索收成图标（⌘F 原地展开）。省下的空间还给列表——按 <b>今天 / 昨天 / 本周 / 更早</b> 分组，组头吸顶。',
+    pros: [['g', '有结构'], ['n', '11 条平铺变成 4 组；找「上周那条」从眼扫变成定位；组头吸顶滚动时一直知道自己在哪']],
+    cons: [['o', '注意'], ['n', '分组规则要选好（按修改时间还是创建时间？）；组头本身占高度']],
+    search: '顶栏图标，⌘F 原地展开', benefit: '列表第一次有了结构，组头吸顶', risk: '分组规则要定清楚；组头占高度',
+  },
+  {
+    no: '③', id: 'l3', name: '抽屉筛选', html: P3, h: 40,
+    tag: '省 36px',
+    ds: '头部一行，筛选做成可展开的抽屉：类型 / 标签 / 时间三组 chips，底部实时显示「11 条 → 4 条」。把常驻的搜索行换成<b>按需的筛选行</b>。',
+    pros: [['g', '把低频变按需'], ['n', '搜索行不再常驻；筛选终于有了界面（现在顶栏那个筛选图标点开是什么，没人知道）']],
+    cons: [['o', '注意'], ['n', '筛选展开时会挤走列表；chips 里的「类型」要小心，别做成模式切换器']],
+    search: '顶栏图标，⌘F 原地展开', benefit: '把常驻的搜索行换成按需的筛选行', risk: '展开挤列表；类型 chips 容易滑向模式切换',
+  },
+  {
+    no: '④', id: 'l4', name: '侧栏优先', html: P4, h: 32,
+    tag: '纵向仅 32px',
+    ds: '列表页变成左栏 + 列表。最近 / 全部 / 置顶 / 含待办 / 标签 / 回收站 全在左栏——这些都是列表页真正需要但<b>现在完全没有入口</b>的东西。',
+    pros: [['g', '补齐入口'], ['n', '置顶、标签、回收站现在无处可去；左栏一次给全，且每个入口带条数']],
+    cons: [['o', '代价'], ['n', '占掉 152px 横向宽度（448 → 296），列表标题会被压缩；窄面板下要考虑收起']],
+    search: '内容区顶栏图标', benefit: '把置顶/标签/回收站这些缺失的入口一次给全', risk: '占 152px 宽度，列表标题被压缩',
+  },
+  {
+    no: '⑤', id: 'l5', name: '浮岛列表', html: P5, h: 0,
+    tag: '常驻 0px',
+    ds: '没有头部。一颗胶囊浮在列表上方，只显示「全部笔记 · 11」。悬停时长成三行——标题行 + 搜索行 + 筛选 chips。列表在它下面滚动。',
+    pros: [['g', '零占用'], ['n', '列表从第一像素开始；搜索与筛选都在，但不常驻']],
+    cons: [['o', '注意'], ['n', '展开时遮住前两条（可用列表下移过渡缓解）；触屏上悬停要改成点击']],
+    search: '浮岛展开后的第二行', benefit: '列表从第一像素开始，功能一个不少', risk: '展开遮住前两条；触屏需改点击',
+  },
+  {
+    no: '⑥', id: 'l6', name: '时间轴', html: P6, h: 0,
+    tag: '常驻 0px',
+    ds: '没有头部，也没有分组标题条。列表左侧一条时间轴细线，每天一个节点；滚动时顶部浮出一条 28px 的迷你条，显示<b>当前正在看哪一天、有几条</b>。新建按钮变成右下角的悬浮球。',
+    pros: [['g', '最沉浸'], ['n', '列表页上没有任何 chrome；时间轴把「什么时候写的」变成可见的纵轴']],
+    cons: [['o', '代价'], ['n', '左侧 34px 缩进让每行可用宽度变窄；迷你条要在滚动时实时更新分组，实现成本略高']],
+    search: '⌘F 全屏搜索层', benefit: '页面上没有任何 chrome，时间成为可见的纵轴', risk: '左缩进压窄行宽；迷你条实现成本略高',
+  },
+]
+
+/* ============================================================================
+   渲染
+   ========================================================================= */
+const ISSUES = [
+  ['顶栏的 🔍 图标与下面的搜索框是同一个功能，占了两处', '同一个功能出现两次，用户要先判断「我该点哪个」。'],
+  ['搜索框常驻 40px，而它是「偶发高频」', '用的时候很频繁，但大部分时间是空着的——这 40px 一直在为小概率事件付租金。'],
+  ['「全部笔记」是死标题，永远不变，却占着一个位置', '它不承担信息也不承担导航，只是「你在这里」的一句提示。'],
+  ['11 条笔记平铺，没有任何结构', '找「上周那条」只能靠眼扫；滚动时也看不出自己滑到哪一天了。'],
+  ['顶栏有筛选图标，但列表视图里没有对应的筛选界面', '点开是什么没人知道——功能存在但不可发现。'],
+  ['置顶、标签、回收站这些入口在列表页里完全没有', '笔记多了以后，没有组织手段。'],
+]
+document.getElementById('issueList').innerHTML =
+  ISSUES.map(([t, d], i) => `<div class="ir"><span class="n">${String(i + 1).padStart(2, '0')}</span><span class="t"><b>${t}</b><br>${d}</span></div>`).join('')
+
+document.getElementById('baseline').innerHTML = `
+<div class="ifp ls-stage ls" style="width:420px">
+  <div class="ls-bar" style="height:36px;display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--border-subtle)">
+    <span style="width:19px;height:19px;display:flex">${LOGO}</span>
+    <span style="font-size:13px;font-weight:650">全部笔记</span>
+    <span style="font-size:10.5px;font-weight:650;color:var(--text-secondary);background:var(--surface-sunken);border-radius:999px;padding:1.5px 7px">11</span>
+    <span style="margin-left:auto;display:flex;gap:1px">
+      <span class="ls--one" style="display:contents"></span>
+    </span>
+    <span style="margin-left:auto;display:flex;gap:1px">
+      <span class="ib" style="width:25px;height:25px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--text-secondary)">${I.search}</span>
+      <span class="ib" style="width:25px;height:25px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--text-secondary)">${I.filter}</span>
+      <span style="width:25px;height:25px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff">${I.plus}</span>
+    </span>
+  </div>
+  <div style="height:40px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid var(--border-subtle)">
+    <span style="flex:1;display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;border:1px solid var(--accent-border);border-radius:9px;background:var(--surface);box-shadow:0 0 0 3px rgba(92,163,255,.16);font-size:12px;color:var(--text-tertiary)">
+      <span style="width:13px;height:13px;display:flex;color:var(--text-tertiary)">${I.search}</span>
+      搜索笔记标题、内容或自然语言意图…
+      <span style="margin-left:auto">✕</span>
+    </span>
+  </div>
+  <div class="ifp__body" style="height:430px">${LIST_FLAT}</div>
+  <div class="ifp__status"><span><b>⌥⌘N</b> 呼出 · <b>⌘K</b> 命令面板</span><span class="ok"><i></i>已保存</span></div>
+</div>`
+
+document.getElementById('grid').innerHTML = SCHEMES.map((s) => `
+<article class="proto" data-scheme="${s.id}">
+  <div class="proto__hd">
+    <span class="proto__no">${s.no}</span>
+    <span class="proto__nm">${s.name}</span>
+    <span class="proto__tag">${s.tag}</span>
+  </div>
+  <p class="proto__ds">${s.ds}</p>
+  <div class="proto__stage">
+    ${s.html}
+    <div class="ctrl" data-ctrl="${s.id}"></div>
+  </div>
+  <div class="proto__ft">
+    ${[...s.pros, ...s.cons].map(([k, t]) => `<div class="pf"><b class="${k}">${k === 'g' ? '好处' : k === 'o' ? '代价' : '说明'}</b><span>${t}</span></div>`).join('')}
+  </div>
+</article>`).join('')
+
+const CTRLS = {
+  l1: [['输入态', 'type'], ['空闲态', 'idle']],
+  l2: [['展开搜索', 'search'], ['收起', 'idle']],
+  l3: [['展开筛选', 'open'], ['收起', 'close']],
+  l4: [['最近', 'recent'], ['标签', 'tags']],
+  l5: [['悬停展开', 'open'], ['收起', 'close']],
+  l6: [['滚动中', 'scroll'], ['回到顶部', 'top']],
+}
+document.querySelectorAll('[data-ctrl]').forEach((box) => {
+  box.innerHTML = CTRLS[box.dataset.ctrl].map(([label, act]) => `<b data-act="${act}">${label}</b>`).join('')
+})
+
+/* ============================================================================
+   交互
+   ========================================================================= */
+// ① 搜索即头部
+const l1 = document.querySelector('[data-scheme="l1"]')
+document.querySelector('[data-ctrl="l1"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act; if (!act) return
+  l1.querySelector('.field').classList.toggle('on', act === 'type')
+  document.querySelectorAll('[data-ctrl="l1"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+
+// ② 单行 + 分组
+const l2 = document.querySelector('[data-scheme="l2"]')
+document.querySelector('[data-ctrl="l2"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act; if (!act) return
+  // 搜索图标切换成一个内联输入框
+  const bar = l2.querySelector('.ls-bar')
+  let f = bar.querySelector('.inline-search')
+  if (act === 'search') {
+    if (!f) {
+      f = document.createElement('span')
+      f.className = 'inline-search'
+      f.style.cssText = 'flex:1;display:flex;align-items:center;gap:8px;height:28px;padding:0 10px;border-radius:8px;background:var(--surface);border:1px solid var(--accent-border);box-shadow:0 0 0 3px rgba(92,163,255,.16);font-size:12px;color:var(--text-primary);margin-left:6px'
+      f.innerHTML = `<span style="width:13px;height:13px;display:flex;color:var(--text-tertiary)">${I.search}</span>搜索笔记…<span style="width:1.5px;height:14px;background:var(--accent)"></span>`
+      bar.insertBefore(f, bar.querySelector('.acts'))
+    }
+  } else if (f) f.remove()
+  document.querySelectorAll('[data-ctrl="l2"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+
+// ③ 抽屉
+const l3 = document.querySelector('[data-scheme="l3"]')
+document.querySelector('[data-ctrl="l3"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act; if (!act) return
+  l3.querySelector('.ls--drawer').classList.toggle('open', act === 'open')
+  document.querySelectorAll('[data-ctrl="l3"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+
+// ④ 侧栏
+const l4 = document.querySelector('[data-scheme="l4"]')
+document.querySelector('[data-ctrl="l4"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act; if (!act) return
+  const items = l4.querySelectorAll('.rail .it')
+  items.forEach((it) => it.classList.toggle('on', it.textContent.trim().startsWith(act === 'recent' ? '最近' : '标签')))
+  document.querySelectorAll('[data-ctrl="l4"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+
+// ⑤ 浮岛
+const l5 = document.querySelector('[data-scheme="l5"]')
+const island5 = l5.querySelector('.ls--island')
+const pill5 = l5.querySelector('.pill')
+pill5.addEventListener('mouseenter', () => island5.classList.add('open'))
+pill5.addEventListener('mouseleave', () => setTimeout(() => { if (!pill5.matches(':hover')) island5.classList.remove('open') }, 300))
+document.querySelector('[data-ctrl="l5"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act; if (!act) return
+  island5.classList.toggle('open', act === 'open')
+  document.querySelectorAll('[data-ctrl="l5"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+
+// ⑥ 时间轴
+const l6 = document.querySelector('[data-scheme="l6"]')
+const tlPanel = l6.querySelector('.ls--tl')
+const tlBody = l6.querySelector('[data-tlbody]')
+tlBody.addEventListener('scroll', () => {
+  tlPanel.classList.toggle('scrolled', tlBody.scrollTop > 24)
+  // 迷你条显示当前所在分组
+  const days = [...tlBody.querySelectorAll('.day')]
+  let cur = days[0]
+  for (const d of days) { if (d.offsetTop - tlBody.scrollTop <= 34) cur = d }
+  const idx = days.indexOf(cur)
+  l6.querySelector('[data-sticky]').innerHTML = `${cur.textContent}<i>${GROUPS[idx][1].length} 条</i>`
+})
+document.querySelector('[data-ctrl="l6"]').addEventListener('click', (e) => {
+  const act = e.target.dataset.act; if (!act) return
+  tlBody.scrollTop = act === 'scroll' ? 150 : 0
+  document.querySelectorAll('[data-ctrl="l6"] b').forEach((b) => b.classList.toggle('on', b.dataset.act === act))
+})
+
+/* ---------- 默认状态：展示各自最有信息量的样子 ---------- */
+requestAnimationFrame(() => {
+  l1.querySelector('.field').classList.add('on')
+  island5.classList.add('open')
+  l3.querySelector('.ls--drawer').classList.add('open')
+  document.querySelectorAll('.ctrl b:first-child').forEach((b) => b.classList.add('on'))
+})
+
+/* ============================================================================
+   对照表
+   ========================================================================= */
+document.getElementById('cmpBody').innerHTML = `
+<tr style="background:var(--warn-soft)">
+  <td>现状（当前实现）</td>
+  <td class="num">76px</td>
+  <td>常驻一行 40px</td>
+  <td>信息最全，不需要额外操作</td>
+  <td>搜索重复两处；标题是死的；列表无结构</td>
+</tr>` + SCHEMES.map((s) => `
+<tr class="${s.id === 'l2' ? 'rec' : ''}">
+  <td>${s.no} ${s.name}</td>
+  <td class="num ${s.h <= 46 ? 'best' : ''}">${s.h}px</td>
+  <td>${s.search}</td>
+  <td>${s.benefit}</td>
+  <td>${s.risk}</td>
+</tr>`).join('')
+</script>
+</body>
+</html>

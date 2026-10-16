@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iFolo · 方案三 · 可交互演示式</title>
+<meta name="description" content="iFolo —— 屏幕边缘笔记。不用看图，直接在官网里把它点一遍。">
+<link rel="stylesheet" href="./assets/tokens.css">
+<link rel="stylesheet" href="./assets/panel.css">
+<link rel="stylesheet" href="./assets/site.css">
+<style>
+/* ============================================================================
+   方案三 · 可交互演示式
+   ----------------------------------------------------------------------------
+   和方案一、二的区别：前两版是「看」，这一版是「用」。
+
+   三件事让它不只是张图：
+     1. 面板是真能点的 —— 点笔记进编辑器、点搜索切筛选、点 ＋ 新建。
+     2. 右侧六个编号注释可以悬停，面板里对应的区域会亮起高亮环。
+     3. 键盘是真的通的 —— 在页面上直接按 ⌘K / ⌘L / ⌘F / Esc，面板会响应，
+        下方键帽同步点亮。访客不用先下载才能体会。
+   ========================================================================= */
+
+.nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 40; height: 60px;
+  display: flex; align-items: center; gap: 10px; padding: 0 26px;
+  background: rgba(255, 255, 255, .7);
+  border-bottom: 1px solid rgba(255, 255, 255, .72);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+}
+.nav__brand { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+.nav__brand svg { width: 22px; height: 22px; }
+.nav__links { margin-left: 24px; display: flex; gap: 4px; }
+.nav__links a { font-size: 13.5px; font-weight: 550; color: var(--ink-600); padding: 7px 12px; border-radius: 8px; }
+.nav__links a:hover { background: rgba(16, 24, 40, .05); color: var(--ink-900); }
+.nav__right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* ---------- 首屏 ---------- */
+.hero { padding: 118px 0 30px; text-align: center; }
+.hero h1 { margin: 20px auto 0; max-width: 16ch; }
+.hero .lead { margin: 20px auto 0; max-width: 580px; }
+.hero__cta { display: flex; gap: 12px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
+.hero__try {
+  display: inline-flex; align-items: center; gap: 9px; margin-top: 18px;
+  font-size: 13px; font-weight: 600; color: var(--ink-700);
+  background: rgba(255, 255, 255, .8); border: 1px solid rgba(255, 255, 255, .9);
+  border-radius: 999px; padding: 8px 16px 8px 12px;
+  box-shadow: 0 10px 26px -18px rgba(20, 22, 40, .5);
+}
+.hero__try .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green-500); }
+.hero__try .dot.live { animation: live 1.6s ease-out infinite; }
+@keyframes live { 0% { box-shadow: 0 0 0 0 rgba(105, 207, 61, .55) } 100% { box-shadow: 0 0 0 9px rgba(105, 207, 61, 0) } }
+
+/* ---------- 演示舞台 ---------- */
+.stage {
+  padding: 40px 0;
+  min-height: calc(100vh - 60px);
+  display: flex; align-items: center;
+}
+.stage > .wrap { width: 100%; }
+.stage__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 300px;
+  gap: 44px; align-items: center;
+}
+.stage__panel { position: relative; }
+
+/* 高亮环：由 JS 按目标元素的实测位置绘制 */
+.spot {
+  position: absolute; border-radius: 10px; pointer-events: none;
+  border: 2px solid var(--blue-600);
+  background: rgba(92, 163, 255, .1);
+  box-shadow: 0 0 0 4px rgba(92, 163, 255, .16);
+  opacity: 0; transition: all 260ms var(--ease-out); z-index: 8;
+}
+.spot.on { opacity: 1; }
+
+/* 左侧：当前注释的详情 */
+.detail { max-width: 400px; }
+.detail__no {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
+  color: var(--blue-700); letter-spacing: .1em;
+}
+.detail h3 { margin: 13px 0 12px; }
+.detail p { margin: 0; font-size: 14px; line-height: 1.72; color: var(--ink-600); }
+.detail__keys { display: flex; gap: 7px; margin-top: 18px; align-items: center; flex-wrap: wrap; }
+.detail__keys span { font-size: 12.5px; color: var(--ink-500); }
+.detail__hint {
+  margin-top: 22px; padding: 12px 14px; border-radius: 11px;
+  background: var(--blue-50); border: 1px solid var(--blue-100);
+  font-size: 12.5px; line-height: 1.65; color: var(--blue-900);
+}
+.detail__hint b { color: var(--blue-700); }
+
+/* 右侧：编号注释列表 */
+.anns { display: flex; flex-direction: column; gap: 3px; }
+.ann {
+  display: flex; align-items: flex-start; gap: 11px; text-align: left;
+  padding: 9px 11px; border-radius: 10px; border: 1px solid transparent;
+  background: transparent; cursor: pointer; font-family: inherit;
+  transition: background var(--dur-hover), border-color var(--dur-hover);
+}
+.ann:hover, .ann.on { background: rgba(255, 255, 255, .82); border-color: rgba(255, 255, 255, .95); box-shadow: 0 10px 26px -22px rgba(20, 22, 40, .5); }
+.ann__n {
+  width: 21px; height: 21px; border-radius: 7px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+  background: var(--ink-100); color: var(--ink-600);
+  transition: background var(--dur-hover), color var(--dur-hover);
+}
+.ann.on .ann__n, .ann:hover .ann__n { background: var(--blue-700); color: #fff; }
+.ann__t { font-size: 13px; font-weight: 600; color: var(--ink-700); line-height: 1.45; }
+.ann.on .ann__t { color: var(--blue-700); }
+
+/* ---------- 键盘条 ---------- */
+.keys { padding: 20px 0 84px; }
+.keys__card {
+  padding: 30px 34px 32px; display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 40px; align-items: center;
+}
+.keys__row { display: flex; gap: 10px; flex-wrap: wrap; }
+.keybtn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 13px; border-radius: 11px; cursor: pointer;
+  background: rgba(255, 255, 255, .8); border: 1px solid var(--ink-200);
+  font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ink-700);
+  transition: all var(--dur-hover);
+}
+.keybtn:hover { border-color: var(--blue-300); background: #fff; transform: translateY(-1px); }
+.keybtn.hit {
+  background: var(--blue-700); border-color: var(--blue-700); color: #fff;
+  box-shadow: 0 10px 24px -12px rgba(9, 101, 220, .7);
+}
+.keybtn.hit kbd { background: rgba(255, 255, 255, .22); border-color: rgba(255, 255, 255, .3); color: #fff; }
+
+/* ---------- 能力清单 ---------- */
+.abil { padding: 0 0 96px; }
+.abil__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 40px; margin-top: 38px; }
+.abil__item { display: flex; gap: 13px; padding: 16px 0; border-top: 1px solid rgba(16, 24, 40, .08); }
+.abil__item .ic {
+  width: 30px; height: 30px; border-radius: 9px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, .85); border: 1px solid rgba(255, 255, 255, .95);
+  box-shadow: 0 6px 16px -12px rgba(20, 22, 40, .5);
+}
+.abil__item .ic svg { width: 15px; height: 15px; }
+.abil__item h4 { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
+.abil__item p { margin: 0; font-size: 13px; line-height: 1.65; color: var(--ink-600); }
+
+/* ---------- CTA + 底栏 ---------- */
+.cta { text-align: center; padding: 0 0 90px; }
+.cta__card { padding: 56px 40px 60px; border-radius: 22px; }
+.cta__card h2 { margin: 0 auto; max-width: 18ch; }
+.cta__card .lead { margin: 16px auto 0; max-width: 460px; }
+.cta__row { display: flex; gap: 12px; justify-content: center; margin-top: 28px; flex-wrap: wrap; }
+.foot { padding: 40px 0 56px; border-top: 1px solid rgba(16, 24, 40, .07); }
+.foot__grid { display: flex; align-items: center; justify-content: space-between; gap: 30px; flex-wrap: wrap; }
+.foot__brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; }
+.foot__brand svg { width: 20px; height: 20px; }
+.foot__links { display: flex; gap: 22px; font-size: 13px; color: var(--ink-600); }
+
+@media (max-width: 1200px) {
+  .stage__grid { grid-template-columns: minmax(0, 1fr); gap: 30px; }
+  .stage__panel { display: flex; justify-content: center; }
+  .detail { max-width: none; order: 2; }
+  .anns { order: 3; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .keys__card { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+}
+@media (max-width: 700px) {
+  .nav__links { display: none; }
+  .hero { padding-top: 100px; }
+  .anns { grid-template-columns: minmax(0, 1fr); }
+  .abil__grid { grid-template-columns: minmax(0, 1fr); }
+  .stage__panel .ifp { --ifp-w: 100%; }
+  .stage__panel .ifp__row:nth-child(n + 7) { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="ambient"></div>
+
+<header class="nav">
+  <span class="nav__brand" id="brandLogo"></span>
+  <nav class="nav__links">
+    <a href="#demo">试一试</a>
+    <a href="#keys">快捷键</a>
+    <a href="#abil">能力</a>
+  </nav>
+  <div class="nav__right">
+    <a class="btn btn--ghost btn--sm" href="#keys">看快捷键</a>
+    <a class="btn btn--primary btn--sm" href="#download">下载 macOS 版</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <span class="eyebrow reveal"><i></i>屏幕边缘笔记 · 跨 Mac / Windows</span>
+    <h1 class="h-display reveal">先别下载，<br>在这里点一遍</h1>
+    <p class="lead reveal">
+      下面这个面板不是截图——是真的能点的。点笔记卡片进编辑器，
+      点右上角放大镜搜笔记，或者直接按 <kbd>⌘</kbd><kbd>K</kbd> 唤出命令面板。
+    </p>
+    <div class="hero__cta reveal">
+      <a class="btn btn--primary" href="#download">下载 macOS 版</a>
+      <a class="btn btn--ghost" href="#abil">看全部能力</a>
+    </div>
+    <div class="hero__try reveal" id="tryHint">
+      <span class="dot" id="tryDot"></span>
+      <span id="tryText">把指针移到面板上，然后按 ⌘K</span>
+    </div>
+  </div>
+</section>
+
+<section class="stage" id="demo">
+  <div class="wrap">
+    <div class="stage__grid">
+      <!-- 左：当前注释详情 -->
+      <div class="detail" id="detail"></div>
+
+      <!-- 中：可交互面板 -->
+      <div class="stage__panel" id="stagePanel">
+        <span class="spot" id="spot"></span>
+      </div>
+
+      <!-- 右：编号注释 -->
+      <div class="anns" id="anns"></div>
+    </div>
+  </div>
+</section>
+
+<section class="keys" id="keys">
+  <div class="wrap">
+    <div class="card keys__card reveal">
+      <div>
+        <span class="eyebrow"><i></i>真的能按</span>
+        <h2 class="h-2" style="margin-top:14px">键盘是通的，试试</h2>
+        <p class="body" style="margin-top:12px">
+          指针移到面板上之后，直接按下面的键——面板会跟着变，键帽也会亮。
+          这就是产品里的真实行为。
+        </p>
+      </div>
+      <div class="keys__row" id="keyRow"></div>
+    </div>
+  </div>
+</section>
+
+<section class="abil" id="abil">
+  <div class="wrap">
+    <div class="reveal" style="max-width:660px">
+      <span class="eyebrow"><i></i>能力清单</span>
+      <h2 class="h-1" style="margin-top:16px">除了看得见的这些</h2>
+      <p class="lead" style="margin-top:16px">
+        v0.1.0 已能呼出、能写、能存。下面是已经在跑的能力，以及正在做的部分。
+      </p>
+    </div>
+    <div class="abil__grid" id="abilGrid"></div>
+  </div>
+</section>
+
+<section class="cta" id="download">
+  <div class="wrap">
+    <div class="card cta__card reveal">
+      <h2 class="h-1">把它放到你的屏幕边缘</h2>
+      <p class="lead">早期版本免费试用，语义检索与 Windows 版正在做。</p>
+      <div class="cta__row">
+        <a class="btn btn--primary" href="#">下载 macOS 版</a>
+        <a class="btn btn--ghost" href="#">在 GitHub 上看源码</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap foot__grid">
+    <div class="foot__brand" id="footLogo"></div>
+    <div class="foot__links">
+      <a href="#demo">试一试</a>
+      <a href="#keys">快捷键</a>
+      <a href="#abil">能力</a>
+      <a href="./index.html">其他方案</a>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+import { createPanel, LOGO } from './assets/panel.js'
+
+document.getElementById('brandLogo').innerHTML = LOGO
+document.getElementById('footLogo').innerHTML = LOGO + '<span>iFolo</span>'
+
+/* ---------- 面板 ---------- */
+const stage = document.getElementById('stagePanel')
+const panel = createPanel({ initial: 'list', height: 470, tabs: true, toolbar: true })
+stage.prepend(panel)
+
+/* ============================================================================
+   编号注释
+   ----------------------------------------------------------------------------
+   每条注释绑定一个 CSS 选择器，悬停时按目标元素的实测位置画高亮环。
+   用实测位置而不是写死坐标，面板尺寸变化时不会错位。
+   ========================================================================= */
+const ICON = {
+  list: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3.4 4.6h9.2M3.4 8h9.2M3.4 11.4h9.2"/></svg>',
+  tag: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8.4 2.6H13v4.6l-6 6-4.6-4.6z"/><circle cx="10.6" cy="5" r="1"/></svg>',
+  fmt: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3.4 4h9.2M3.4 8h6M3.4 12h9.2"/></svg>',
+  task: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="2.8" y="2.8" width="10.4" height="10.4" rx="2.6"/><path d="M5.6 8.2l1.9 1.9 3.4-3.8"/></svg>',
+  handle: '<svg viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.2"/><circle cx="10" cy="4" r="1.2"/><circle cx="6" cy="8" r="1.2"/><circle cx="10" cy="8" r="1.2"/><circle cx="6" cy="12" r="1.2"/><circle cx="10" cy="12" r="1.2"/></svg>',
+  status: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="8" cy="8" r="5.4"/><path d="M8 4.8V8l2.2 1.4"/></svg>',
+}
+
+const ANNS = [
+  {
+    n: 1, ic: ICON.list, t: '分类在卡片上，不在顶栏',
+    sel: '.ifp__kind', pad: 5, view: 'list',
+    d: '顶栏只有「搜索 / 筛选 / 新建」三个动作。快速、笔记、待办三种类型以 12px 图标标识在每张卡片标题前——闪电是快速，文档是笔记，铃铛是待办。',
+    hint: '不做模式切换器是刻意的：切换器要求你先回答「我在哪个模式」再找内容，跟「轻量快速」直接冲突。',
+  },
+  {
+    n: 2, ic: ICON.tag, t: '标签就挂在卡片上',
+    sel: '.ifp__tags', pad: 5, view: 'list',
+    d: '标签直接显示在摘要下方，不用点进笔记才知道它属于哪个项目。颜色区分来源：蓝色是普通标签，绿色是系统标记。',
+  },
+  {
+    n: 3, ic: ICON.fmt, t: '富文本工具栏 34px',
+    sel: '.ifp__bar', pad: 3, view: 'editor',
+    d: '标签页条下方一条常驻工具栏：段落类型、B / I / U / S、行内代码，右侧是链接、颜色、高亮、Emoji。窄面板放不下时收进「⋯」，不横向滚动。',
+    hint: '工具栏解决「先选格式再打字」，选中气泡解决「先选文字再改格式」。只做其中一个，都会让一半的操作路径变长。',
+  },
+  {
+    n: 4, ic: ICON.task, t: '六种任务状态',
+    sel: '.ifp__st', pad: 4, view: 'editor', all: true,
+    d: '一条待办可以是待办池 / 待办 / 进行中 / 审核中 / 已完成 / 已取消，归入五个分组。点一下胶囊推进到下一个状态，不用打开任何面板。',
+    hint: '状态以 <b>- [inProgress]</b> 写进 Markdown，别的编辑器也读得懂。',
+  },
+  {
+    n: 5, ic: ICON.handle, t: '段落指示器',
+    sel: '.ifp__doc', pad: 6, view: 'editor',
+    d: '悬停任意段落，左侧浮出手柄：空行显示 ＋（在下方插入），有内容行显示拖拽点（重排段落）。手柄渲染在编辑器容器外层，不进入编辑器管理的节点树。',
+  },
+  {
+    n: 6, ic: ICON.status, t: '状态栏',
+    sel: '.ifp__status', pad: 2,
+    d: '底部常驻一行快捷键提示与保存状态。手不离键盘就能完成所有操作，也不会有「到底存了没有」的疑虑。',
+  },
+]
+
+const spot = document.getElementById('spot')
+const annsEl = document.getElementById('anns')
+const detailEl = document.getElementById('detail')
+let activeAnn = -1
+
+function showSpot(i) {
+  const a = ANNS[i]
+  if (!a) { spot.classList.remove('on'); return }
+  // 注释可能属于另一个视图（列表 / 编辑器），先把面板切过去再测量，
+  // 否则目标元素还是 display:none，量出来的矩形是 0。
+  if (a.view && panel.dataset.state !== a.view) {
+    panel.__toggleCmd(false)
+    panel.__show(a.view)
+  }
+  const targets = a.all ? [...panel.querySelectorAll(a.sel)] : [panel.querySelector(a.sel)]
+  if (!targets.length || !targets[0]) { spot.classList.remove('on'); return }
+  const pr = panel.getBoundingClientRect()
+  const pad = a.pad || 4
+  // 多目标时取并集外框（例如「六种任务状态」要框住右侧一整列胶囊）
+  let tr
+  if (targets.length === 1) {
+    tr = targets[0].getBoundingClientRect()
+  } else {
+    const rects = targets.map((t) => t.getBoundingClientRect())
+    const l = Math.min(...rects.map((r) => r.left))
+    const t = Math.min(...rects.map((r) => r.top))
+    const r2 = Math.max(...rects.map((r) => r.right))
+    const b = Math.max(...rects.map((r) => r.bottom))
+    tr = { left: l, top: t, width: r2 - l, height: b - t }
+  }
+  spot.style.left = (tr.left - pr.left - pad) + 'px'
+  spot.style.top = (tr.top - pr.top - pad) + 'px'
+  spot.style.width = (tr.width + pad * 2) + 'px'
+  spot.style.height = (tr.height + pad * 2) + 'px'
+  spot.classList.add('on')
+}
+
+function renderDetail(i) {
+  if (i < 0) {
+    detailEl.innerHTML = `
+      <div class="detail__no">面板 · 真实界面</div>
+      <h3 class="h-2" style="margin-top:13px">右边六条注释，悬停看看</h3>
+      <p>这不是一张图。点笔记卡片会进编辑器，点放大镜会切到搜索，
+        右上角的 ＋ 可以新建。右侧每一条都对应面板里的一个区域。</p>
+      <div class="detail__hint">指针移到面板上之后，<b>⌘K</b> 唤出命令面板，
+        <b>⌘L</b> 回列表，<b>⌘F</b> 搜索，<b>Esc</b> 收起。</div>`
+    return
+  }
+  const a = ANNS[i]
+  detailEl.innerHTML = `
+    <div class="detail__no">${String(a.n).padStart(2, '0')} — 界面细节</div>
+    <h3 class="h-2" style="margin-top:13px">${a.t}</h3>
+    <p>${a.d}</p>
+    ${a.hint ? `<div class="detail__hint">${a.hint}</div>` : ''}`
+}
+
+annsEl.innerHTML = ANNS.map((a, i) => `
+  <button class="ann" data-i="${i}">
+    <span class="ann__n">${a.n}</span>
+    <span class="ann__t">${a.t}</span>
+  </button>`).join('')
+
+annsEl.querySelectorAll('.ann').forEach((btn) => {
+  const i = +btn.dataset.i
+  btn.addEventListener('mouseenter', () => { activeAnn = i; showSpot(i); renderDetail(i); syncAnn() })
+  btn.addEventListener('focus', () => { activeAnn = i; showSpot(i); renderDetail(i); syncAnn() })
+  btn.addEventListener('click', () => { activeAnn = i; showSpot(i); renderDetail(i); syncAnn() })
+})
+function syncAnn() {
+  annsEl.querySelectorAll('.ann').forEach((b, k) => b.classList.toggle('on', k === activeAnn))
+}
+renderDetail(-1)
+
+// 面板内容变化后高亮环会错位，所以每次交互后重画
+stage.addEventListener('click', () => setTimeout(() => showSpot(activeAnn), 40))
+window.addEventListener('resize', () => showSpot(activeAnn))
+
+/* ============================================================================
+   键盘：真的能按
+   ========================================================================= */
+const KEYS = [
+  { k: ['⌘', 'K'], code: 'KeyK', meta: true, label: '命令面板' },
+  { k: ['⌘', 'L'], code: 'KeyL', meta: true, label: '笔记列表' },
+  { k: ['⌘', 'F'], code: 'KeyF', meta: true, label: '搜索内容' },
+  { k: ['⌘', 'N'], code: 'KeyN', meta: true, label: '新建笔记' },
+  { k: ['Esc'], code: 'Escape', meta: false, label: '收起面板' },
+]
+const keyRow = document.getElementById('keyRow')
+keyRow.innerHTML = KEYS.map((k, i) => `
+  <button class="keybtn" data-i="${i}">
+    ${k.k.map((x) => `<kbd>${x}</kbd>`).join('')}
+    <span>${k.label}</span>
+  </button>`).join('')
+
+function press(i) {
+  const btn = keyRow.querySelector(`[data-i="${i}"]`)
+  if (!btn) return
+  btn.classList.add('hit')
+  setTimeout(() => btn.classList.remove('hit'), 420)
+}
+// 点键帽 = 真的发一次快捷键
+keyRow.querySelectorAll('.keybtn').forEach((btn) => {
+  btn.addEventListener('click', () => { dispatch(+btn.dataset.i) })
+})
+
+const tryText = document.getElementById('tryText')
+const tryDot = document.getElementById('tryDot')
+let liveOnce = false
+
+function dispatch(i) {
+  const k = KEYS[i]
+  if (k.code === 'KeyK') panel.__toggleCmd()
+  else if (k.code === 'KeyL') { panel.__toggleCmd(false); panel.__show('list') }
+  else if (k.code === 'KeyF') { panel.__toggleCmd(false); panel.__show('search') }
+  else if (k.code === 'KeyN') { panel.__toggleCmd(false); panel.__show('editor') }
+  else if (k.code === 'Escape') { panel.__toggleCmd(false); panel.__show('list') }
+  press(i)
+  setTimeout(() => showSpot(activeAnn), 40)
+}
+
+// 真实键盘：只在指针悬停面板上时接管，避免抢走浏览器自身快捷键
+let overPanel = false
+panel.addEventListener('mouseenter', () => { overPanel = true })
+panel.addEventListener('mouseleave', () => { overPanel = false })
+
+window.addEventListener('keydown', (e) => {
+  if (!overPanel) return
+  const meta = e.metaKey || e.ctrlKey
+  const map = { k: 0, l: 1, f: 2, n: 3 }
+  const lower = e.key.toLowerCase()
+  if (meta && lower in map) {
+    e.preventDefault()
+    dispatch(map[lower])
+    if (!liveOnce) { liveOnce = true; tryDot.classList.add('live'); tryText.textContent = '就是它 —— 产品里也是这么按的' }
+  } else if (e.key === 'Escape') {
+    e.preventDefault(); dispatch(4)
+  }
+})
+
+/* ---------- 能力清单 ---------- */
+const ABIL = [
+  { ic: ICON.list, t: '屏幕边缘热区', d: '3pt 宽，停留 120ms 呼出。用全局鼠标监听实现，不放透明窗口，所以不会拦截屏幕边缘的点击。' },
+  { ic: ICON.status, t: '呼出不夺焦', d: '.nonactivatingPanel —— 面板显示时当前应用仍是前台应用，不需要先点一下面板才能打字。' },
+  { ic: ICON.fmt, t: 'Liquid Glass 材质', d: 'macOS 26+ 用系统原生 NSGlassEffectView，透明度与模糊解耦，两者独立可调。' },
+  { ic: ICON.task, t: 'Markdown 双向序列化', d: '笔记存成纯 Markdown 落在本地，任务状态写成 - [inProgress] 扩展语法，任何编辑器都读得懂。' },
+  { ic: ICON.handle, t: '语义检索', d: '基于 macOS 原生 NLEmbedding 的 300 维向量索引，完全脱机、零模型体积，关键词 + 向量混合排序。' },
+  { ic: ICON.tag, t: '可自定义任务状态', d: '状态名、颜色、图标都可改；可设置「淡化该行」「加删除线」；内置状态只能隐藏不能删除。' },
+  { ic: ICON.list, t: '面板内多标签页', d: '同时打开多条笔记，新建 / 关闭 / 重命名。关闭的标签进废纸篓，30 天内可恢复。' },
+  { ic: ICON.handle, t: '跨平台（进行中）', d: '外壳原生、编辑器在 Web 层。同一套编辑器代码直接复用到 Windows 外壳，不必重写两遍。' },
+]
+document.getElementById('abilGrid').innerHTML = ABIL.map((a) => `
+  <div class="abil__item">
+    <span class="ic" style="color:var(--blue-700)">${a.ic}</span>
+    <div><h4>${a.t}</h4><p>${a.d}</p></div>
+  </div>`).join('')
+
+/* ---------- 揭示 ---------- */
+const io = new IntersectionObserver((es) => {
+  es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } })
+}, { threshold: 0.1 })
+document.querySelectorAll('.reveal').forEach((n, i) => {
+  setTimeout(() => n.classList.add('in'), 60 + i * 50)
+  io.observe(n)
+})
+</script>
+</body>
+</html>

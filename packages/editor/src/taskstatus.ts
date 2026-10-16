@@ -59,10 +59,15 @@ export function statusByKey(key: string): TaskStatus {
 }
 
 export function statusByMarker(marker: string): TaskStatus {
-  const m = marker.trim().toLowerCase()
+  const raw = marker.trim().toLowerCase()
   // 标准 Markdown 的 [x] / [X] 都算完成
-  if (m === 'x') return BY_KEY.get('done')!
-  return BY_MARKER.get(m) ?? BY_KEY.get(DEFAULT_STATUS)!
+  if (raw === 'x') return BY_KEY.get('done')!
+  if (raw === '' || raw === ' ') return BY_KEY.get('todo')!
+  const normalized = raw.replace(/[-_]/g, '')
+  for (const [m, s] of BY_MARKER.entries()) {
+    if (m.replace(/[-_]/g, '') === normalized) return s
+  }
+  return BY_MARKER.get(raw) ?? BY_KEY.get(DEFAULT_STATUS)!
 }
 
 export function groupOf(key: string): TaskGroup {

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iFolo · 方案二 · 滚动叙事式</title>
+<meta name="description" content="iFolo —— 屏幕边缘笔记。跨 Mac / Windows，同步不设体积上限，语义检索。"">
+<link rel="stylesheet" href="./assets/tokens.css">
+<link rel="stylesheet" href="./assets/panel.css">
+<link rel="stylesheet" href="./assets/site.css">
+<style>
+/* ============================================================================
+   方案二 · 滚动叙事式
+   ----------------------------------------------------------------------------
+   和方案一的区别：方案一是「首页就是产品交互」，方案二是「把产品当物件来展示」。
+
+   两个核心手法：
+     1. 首屏用 3D 透视把面板立起来，随滚动逐渐扶正 —— 像看一件实物。
+     2. 功能章节不用整张界面，而是放大裁切到某个局部（工具栏 / 状态胶囊 /
+        命令面板 / 搜索框）。访客看到的是细节，而不是又一张缩略图。
+   ========================================================================= */
+
+/* ---------- 导航 ---------- */
+.nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 40; height: 62px;
+  display: flex; align-items: center; gap: 10px; padding: 0 30px;
+  background: rgba(255, 255, 255, .7);
+  border-bottom: 1px solid rgba(255, 255, 255, .7);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+}
+.nav__brand { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+.nav__brand svg { width: 22px; height: 22px; }
+.nav__links { margin-left: 26px; display: flex; gap: 4px; }
+.nav__links a { font-size: 13.5px; font-weight: 550; color: var(--ink-600); padding: 7px 12px; border-radius: 8px; transition: background var(--dur-hover); }
+.nav__links a:hover { background: rgba(16, 24, 40, .05); color: var(--ink-900); }
+.nav__right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* ---------- 首屏 ---------- */
+.hero { padding: 132px 0 0; text-align: center; }
+.hero__badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 650; color: var(--ink-600);
+  background: rgba(255, 255, 255, .8); border: 1px solid rgba(255, 255, 255, .9);
+  border-radius: 999px; padding: 6px 14px 6px 11px;
+  box-shadow: 0 8px 22px -16px rgba(20, 22, 40, .5);
+}
+.hero__badge i { width: 6px; height: 6px; border-radius: 50%; background: var(--green-500); }
+.hero h1 { margin: 24px auto 0; max-width: 15ch; }
+.hero .lead { margin: 24px auto 0; max-width: 560px; }
+.hero__cta { display: flex; gap: 12px; justify-content: center; margin-top: 34px; flex-wrap: wrap; }
+.hero__note { margin-top: 14px; font-size: 12px; color: var(--ink-400); }
+
+/* 3D 舞台：面板像一件立起来的实物，随滚动扶正 */
+.stage {
+  margin-top: 62px;
+  perspective: 1800px;
+  perspective-origin: 50% 0%;
+  padding-bottom: 90px;
+}
+.stage__panel {
+  display: flex; justify-content: center;
+  transform: rotateX(var(--rx, 16deg)) scale(var(--sc, .93));
+  transform-origin: 50% 0%;
+  transition: transform 120ms linear;
+  will-change: transform;
+}
+.stage__panel .ifp { --ifp-op: .97; }
+.stage__floor {
+  height: 1px; margin: -40px auto 0; width: min(760px, 80%);
+  background: linear-gradient(90deg, transparent, rgba(16, 24, 40, .1), transparent);
+}
+
+/* ---------- 章节骨架 ---------- */
+.sec { padding: 104px 0; }
+.sec__head { max-width: 660px; }
+.sec__head--center { margin-inline: auto; text-align: center; }
+
+/* 功能行：文案与放大裁切交替左右 */
+.feat {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 76px; align-items: center;
+}
+.feat + .feat { margin-top: 118px; }
+.feat--flip .feat__txt { order: 2; }
+.feat__txt { max-width: 430px; }
+.feat__no {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
+  color: var(--ink-400); letter-spacing: .1em;
+}
+.feat__txt h3 { margin: 14px 0 14px; }
+.feat__txt p { margin: 0; }
+.feat__list { margin: 22px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.feat__list li { display: flex; gap: 10px; font-size: 13.5px; color: var(--ink-600); line-height: 1.6; }
+.feat__list li:before {
+  content: ""; width: 15px; height: 15px; border-radius: 5px; flex: 0 0 auto; margin-top: 3px;
+  background: var(--blue-50) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%230965DC' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M3.6 8.4l3 3 5.8-6.4'/%3E%3C/svg%3E") center/10px no-repeat;
+}
+
+/* 放大裁切：把整块面板按倍数缩放后裁出一块局部。
+   关键：transform: scale(s) translate(tx,ty) 在 transform-origin:0 0 下，
+   translate 用的是面板自身坐标系 —— 所以可见区域从面板坐标 (-tx,-ty) 开始，
+   宽 w/s、高 h/s。想裁面板的 (X,Y) 处，就写 tx:-X、ty:-Y。 */
+.crop {
+  position: relative;
+  width: var(--w, 520px); height: var(--h, 320px);
+  overflow: hidden; border-radius: 16px;
+  background: rgba(255, 255, 255, .6);
+  border: 1px solid rgba(255, 255, 255, .9);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 30px 66px -34px rgba(16, 24, 40, .4);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.crop__inner {
+  position: absolute; left: 0; top: 0;
+  transform: scale(var(--s, 2)) translate(var(--x, 0px), var(--y, 0px));
+  transform-origin: 0 0;
+  filter: drop-shadow(0 12px 26px rgba(20, 22, 40, .16));
+}
+.crop__inner .ifp { --ifp-op: 1; border-radius: 12px; }
+/* 裁切角落的说明标签 */
+.crop__tag {
+  position: absolute; z-index: 3; right: 12px; bottom: 12px;
+  font-size: 11px; font-weight: 700; color: var(--ink-600);
+  background: rgba(255, 255, 255, .92); border: 1px solid rgba(16, 24, 40, .07);
+  border-radius: 7px; padding: 4px 10px;
+  box-shadow: 0 6px 16px -10px rgba(20, 22, 40, .4);
+}
+
+/* ---------- 对比表 ---------- */
+.cmp { margin-top: 44px; overflow: hidden; border-radius: 16px; }
+.cmp table { width: 100%; border-collapse: collapse; background: rgba(255, 255, 255, .82); font-size: 13.5px; }
+.cmp th, .cmp td { padding: 15px 18px; text-align: left; border-bottom: 1px solid var(--ink-100); }
+.cmp thead th { font-size: 12px; font-weight: 700; color: var(--ink-500); letter-spacing: .03em; background: rgba(250, 251, 252, .9); }
+.cmp tbody tr:last-child td { border-bottom: none; }
+.cmp td:first-child { font-weight: 600; color: var(--ink-800); width: 27%; }
+.cmp .mine { background: rgba(240, 246, 255, .8); }
+.cmp .mine strong { color: var(--blue-700); }
+.cmp .yes { color: var(--green-800); font-weight: 650; }
+.cmp .no { color: var(--ink-400); }
+.cmp .part { color: var(--orange-800); font-weight: 650; }
+.cmp th.mine { color: var(--blue-700); }
+
+/* ---------- 色彩体系 ---------- */
+.swatches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 42px; }
+.sw { border-radius: 15px; overflow: hidden; background: rgba(255, 255, 255, .84); border: 1px solid rgba(255, 255, 255, .9); box-shadow: 0 20px 44px -30px rgba(16, 24, 40, .34); }
+.sw__c { height: 96px; }
+.sw__m { padding: 14px 16px 16px; }
+.sw__m .nm { font-size: 13px; font-weight: 650; }
+.sw__m .hx { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-500); margin-top: 3px; }
+.sw__m .rl { font-size: 11.5px; color: var(--ink-500); margin-top: 8px; line-height: 1.5; }
+.ramp { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin-top: 18px; }
+.ramp b { height: 46px; border-radius: 8px; border: 1px solid rgba(16, 24, 40, .06); }
+
+/* ---------- CTA ---------- */
+.cta { text-align: center; padding: 96px 0 110px; }
+.cta__card {
+  padding: 62px 40px 66px; border-radius: 24px;
+  background: rgba(255, 255, 255, .8); border: 1px solid rgba(255, 255, 255, .92);
+  box-shadow: 0 30px 80px -46px rgba(20, 22, 40, .44);
+  backdrop-filter: blur(20px);
+}
+.cta__card h2 { margin: 0 auto; max-width: 18ch; }
+.cta__card .lead { margin: 18px auto 0; max-width: 470px; }
+.cta__row { display: flex; gap: 12px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
+
+/* ---------- 底栏 ---------- */
+.foot { padding: 46px 0 60px; border-top: 1px solid rgba(16, 24, 40, .07); }
+.foot__grid { display: flex; align-items: center; justify-content: space-between; gap: 30px; flex-wrap: wrap; }
+.foot__brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; }
+.foot__brand svg { width: 20px; height: 20px; }
+.foot__links { display: flex; gap: 22px; font-size: 13px; color: var(--ink-600); }
+
+@media (max-width: 1080px) {
+  .feat { grid-template-columns: minmax(0, 1fr); gap: 34px; }
+  .feat--flip .feat__txt { order: 0; }
+  .feat__txt { max-width: none; }
+  .crop { --w: 100% !important; --h: 300px !important; }
+  .swatches { grid-template-columns: 1fr; }
+  .cmp { overflow-x: auto; }
+  .cmp table { min-width: 720px; }
+}
+@media (max-width: 680px) {
+  .nav__links { display: none; }
+  .hero { padding-top: 110px; }
+  .sec { padding: 70px 0; }
+  .stage { margin-top: 40px; }
+  .crop__inner { --s: 1.7 !important; }
+}
+</style>
+</head>
+<body>
+<div class="ambient ambient--calm"></div>
+
+<header class="nav">
+  <span class="nav__brand" id="brandLogo"></span>
+  <nav class="nav__links">
+    <a href="#features">功能</a>
+    <a href="#compare">对比</a>
+    <a href="#color">设计</a>
+  </nav>
+  <div class="nav__right">
+    <a class="btn btn--ghost btn--sm" href="#compare">看对比</a>
+    <a class="btn btn--primary btn--sm" href="#download">下载 macOS 版</a>
+  </div>
+</header>
+
+<!-- 首屏 -->
+<section class="hero">
+  <div class="wrap">
+    <span class="hero__badge reveal"><i></i>v0.1.0 已可运行 · 早期开发中</span>
+    <h1 class="h-display reveal">笔记不该占用一个窗口</h1>
+    <p class="lead reveal">
+      iFolo 把笔记面板收在屏幕边缘，指针碰一下才出现。
+      不抢焦点、不切应用、不用等它启动——写完随手收起，回到手头的事。
+    </p>
+    <div class="hero__cta reveal">
+      <a class="btn btn--primary" href="#download">下载 macOS 版</a>
+      <a class="btn btn--ghost" href="#features">看功能</a>
+    </div>
+    <div class="hero__note reveal">macOS 26 及以上 · 免费试用 14 天</div>
+  </div>
+
+  <div class="stage">
+    <div class="stage__panel" id="stagePanel"></div>
+    <div class="stage__floor"></div>
+  </div>
+</section>
+
+<!-- 功能 -->
+<section class="sec" id="features">
+  <div class="wrap">
+    <div class="sec__head sec__head--center reveal" style="margin-bottom:88px">
+      <span class="eyebrow" style="justify-content:center"><i></i>四个环节</span>
+      <h2 class="h-1" style="margin-top:16px">呼出、写、找、找回</h2>
+      <p class="lead" style="margin-top:16px">
+        从「想到一件事」到「把它记下来」，中间不该有摩擦。下面四张图是真实界面，
+        放大到你平时看不清的地方。
+      </p>
+    </div>
+
+    <!-- 01 呼出 -->
+    <div class="feat">
+      <div class="feat__txt reveal">
+        <div class="feat__no">01 — 呼出</div>
+        <h3 class="h-2">面板出来，你的窗口还在前台</h3>
+        <p class="body">
+          用 <code class="mono">.nonactivatingPanel</code> 实现。面板显示的同时，
+          <b>当前应用仍是前台应用</b>——光标已经在编辑器里等着，不需要先点一下面板。
+        </p>
+        <ul class="feat__list">
+          <li>指针移到屏幕右边缘，停留 120ms 即呼出</li>
+          <li>3pt 热区宽度，是「能碰到」与「不误触」的平衡点</li>
+          <li>也可以按 <kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd> 随时呼出</li>
+        </ul>
+      </div>
+      <div class="crop reveal" style="--w:540px;--h:330px">
+        <div class="crop__inner" style="--s:2.3;--x:0px;--y:0px" data-panel="list"></div>
+        <span class="crop__tag">顶栏 · 36px</span>
+      </div>
+    </div>
+
+    <!-- 02 写 -->
+    <div class="feat feat--flip">
+      <div class="feat__txt reveal">
+        <div class="feat__no">02 — 写</div>
+        <h3 class="h-2">工具栏和选中气泡，分工不同</h3>
+        <p class="body">
+          工具栏解决「<b>先选格式再打字</b>」，选中气泡解决「<b>先选文字再改格式</b>」。
+          只做其中一个，都会让一半的操作路径变长。
+        </p>
+        <ul class="feat__list">
+          <li>段落类型、B / I / U / S、行内代码常驻一行</li>
+          <li>链接、文字颜色、高亮、Emoji 收在右侧</li>
+          <li>窄面板放不下时收进「⋯」，不横向滚动</li>
+        </ul>
+      </div>
+      <div class="crop reveal" style="--w:540px;--h:300px">
+        <div class="crop__inner" style="--s:2.5;--x:-12px;--y:-36px" data-panel="editor"></div>
+        <span class="crop__tag">富文本工具栏 · 34px</span>
+      </div>
+    </div>
+
+    <!-- 03 任务状态 -->
+    <div class="feat">
+      <div class="feat__txt reveal">
+        <div class="feat__no">03 — 推进</div>
+        <h3 class="h-2">待办不是勾选框，是六个状态</h3>
+        <p class="body">
+          一条待办可以处在「待办池 / 待办 / 进行中 / 审核中 / 已完成 / 已取消」，
+          归入五个分组。点一下胶囊就推进到下一个状态，不用打开任何面板。
+        </p>
+        <ul class="feat__list">
+          <li>状态名、颜色、图标都可自定义</li>
+          <li>可设置「淡化该行」「加删除线」</li>
+          <li>状态以 <code class="mono">- [inProgress]</code> 写进 Markdown，别的编辑器也读得懂</li>
+        </ul>
+      </div>
+      <div class="crop reveal" style="--w:540px;--h:340px">
+        <div class="crop__inner" style="--s:1.7;--x:-120px;--y:-240px" data-panel="editor"></div>
+        <span class="crop__tag">任务状态胶囊</span>
+      </div>
+    </div>
+
+    <!-- 04 命令面板 -->
+    <div class="feat feat--flip">
+      <div class="feat__txt reveal">
+        <div class="feat__no">04 — 找</div>
+        <h3 class="h-2">⌘K 一个入口，够用到底</h3>
+        <p class="body">
+          新建、切换列表、搜索、调透明度、收起面板——全部收在一个命令面板里。
+          键盘不打滑，鼠标不用找。
+        </p>
+        <ul class="feat__list">
+          <li>直接在面板里输入就能搜笔记</li>
+          <li>每条命令都标了快捷键，顺手就学会了</li>
+          <li><kbd>Esc</kbd> 关闭，<kbd>⌘</kbd><kbd>L</kbd> 直接回列表</li>
+        </ul>
+      </div>
+      <div class="crop reveal" style="--w:540px;--h:340px">
+        <div class="crop__inner" style="--s:2.1;--x:-12px;--y:-146px" data-panel="cmd"></div>
+        <span class="crop__tag">命令面板 · ⌘K</span>
+      </div>
+    </div>
+
+    <!-- 05 语义检索 -->
+    <div class="feat">
+      <div class="feat__txt reveal">
+        <div class="feat__no">05 — 找回</div>
+        <h3 class="h-2">记不住关键词，也搜得到</h3>
+        <p class="body">
+          基于 macOS 原生 <code class="mono">NLEmbedding</code> 的 300 维向量索引，
+          <b>完全脱机、零模型体积、不联网</b>。关键词稀疏匹配 + 向量余弦相似度混合排序。
+        </p>
+        <ul class="feat__list">
+          <li>用一句自然语言描述你记得的意思</li>
+          <li>索引在本地构建，笔记不出设备</li>
+          <li>可按「全部 / 含待办 / 纯笔记」筛选</li>
+        </ul>
+      </div>
+      <div class="crop reveal" style="--w:540px;--h:300px">
+        <div class="crop__inner" style="--s:2.3;--x:-5px;--y:-46px" data-panel="search"></div>
+        <span class="crop__tag">语义检索</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 对比 -->
+<section class="sec" id="compare">
+  <div class="wrap">
+    <div class="sec__head reveal">
+      <span class="eyebrow"><i></i>横向对比</span>
+      <h2 class="h-1" style="margin-top:16px">三件现有产品结构性做不到的事</h2>
+      <p class="lead" style="margin-top:16px">
+        屏幕边缘笔记这个形态已经成熟，但整个品类被锁在 Apple 生态里，
+        而且检索能力普遍停在「关键词 + 标签」。
+      </p>
+    </div>
+    <div class="card cmp reveal">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th class="mine">iFolo</th>
+            <th>Flyout</th>
+            <th>SideNotes</th>
+            <th>Apple Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>平台</td>
+            <td class="mine"><strong>Mac + Windows</strong></td>
+            <td class="no">仅 macOS</td>
+            <td class="no">仅 macOS</td>
+            <td class="no">Apple 生态</td>
+          </tr>
+          <tr>
+            <td>单条笔记同步上限</td>
+            <td class="mine"><strong>不设硬上限</strong></td>
+            <td class="no">1 MB</td>
+            <td class="part">受 iCloud 限制</td>
+            <td class="part">受 iCloud 限制</td>
+          </tr>
+          <tr>
+            <td>检索方式</td>
+            <td class="mine"><strong>语义 + 关键词</strong></td>
+            <td class="part">关键词 + 标签</td>
+            <td class="part">关键词</td>
+            <td class="part">关键词</td>
+          </tr>
+          <tr>
+            <td>屏幕边缘呼出</td>
+            <td class="mine"><strong class="yes">✓</strong></td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+            <td class="no">—</td>
+          </tr>
+          <tr>
+            <td>呼出不抢焦点</td>
+            <td class="mine"><strong class="yes">✓</strong></td>
+            <td class="yes">✓</td>
+            <td class="part">△ 需先点击</td>
+            <td class="no">—</td>
+          </tr>
+          <tr>
+            <td>富文本编辑器</td>
+            <td class="mine"><strong class="yes">✓</strong></td>
+            <td class="yes">✓</td>
+            <td class="part">△ 偏纯文本</td>
+            <td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td>数据存本地可读格式</td>
+            <td class="mine"><strong class="yes">✓ Markdown</strong></td>
+            <td class="yes">✓</td>
+            <td class="part">△ 私有库</td>
+            <td class="no">—</td>
+          </tr>
+          <tr>
+            <td>智能体接入（MCP）</td>
+            <td class="mine"><strong>规划中</strong></td>
+            <td class="yes">✓</td>
+            <td class="no">—</td>
+            <td class="no">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small reveal" style="margin-top:14px">
+      对比数据来自对 Flyout 1.5.16 的拆包实测与公开资料。完整分析见仓库 <code class="mono">docs/product-analysis.html</code>。
+    </p>
+  </div>
+</section>
+
+<!-- 设计体系 -->
+<section class="sec" id="color">
+  <div class="wrap">
+    <div class="sec__head reveal">
+      <span class="eyebrow"><i></i>设计体系</span>
+      <h2 class="h-1" style="margin-top:16px">配色不是挑出来的，是从 logo 里长出来的</h2>
+      <p class="lead" style="margin-top:16px">
+        logo 本身是橙、蓝、绿三原色的几何构成。整套界面色板全部由它派生，
+        不引入任何外部流行色，不用渐变，不用发光。
+      </p>
+    </div>
+    <div class="swatches reveal">
+      <div class="sw">
+        <div class="sw__c" style="background:#5CA3FF"></div>
+        <div class="sw__m"><div class="nm">iFolo Blue</div><div class="hx">#5CA3FF</div>
+          <div class="rl">主色 · 品牌识别与填充<br>白底 2.58:1，<b>不承载文字</b></div></div>
+      </div>
+      <div class="sw">
+        <div class="sw__c" style="background:#69CF3D"></div>
+        <div class="sw__m"><div class="nm">iFolo Green</div><div class="hx">#69CF3D</div>
+          <div class="rl">辅助色 · 完成与成功<br>语义专用，不做装饰</div></div>
+      </div>
+      <div class="sw">
+        <div class="sw__c" style="background:#FFA51F"></div>
+        <div class="sw__m"><div class="nm">iFolo Orange</div><div class="hx">#FFA51F</div>
+          <div class="rl">强调色 · 提醒与待办<br>同屏面积不超过 10%</div></div>
+      </div>
+    </div>
+    <div class="ramp reveal" id="ramp"></div>
+    <p class="small reveal" style="margin-top:14px">
+      四个色族、44 个色阶、含深色模式，全部通过 WCAG 2.1 对比度校验。可读文字统一走 700/800 深档
+      —— 品牌标准色对比度只有 2.58，只做填充。
+    </p>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta" id="download">
+  <div class="wrap">
+    <div class="cta__card reveal">
+      <h2 class="h-1">把它放到你的屏幕边缘</h2>
+      <p class="lead">
+        v0.1.0 已能呼出、能写、能存。语义检索与 Windows 版正在做。
+        早期版本免费试用，欢迎反馈。
+      </p>
+      <div class="cta__row">
+        <a class="btn btn--primary" href="#">下载 macOS 版</a>
+        <a class="btn btn--ghost" href="#">在 GitHub 上看源码</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap foot__grid">
+    <div class="foot__brand" id="footLogo"></div>
+    <div class="foot__links">
+      <a href="#features">功能</a>
+      <a href="#compare">对比</a>
+      <a href="#color">设计</a>
+      <a href="./index.html">其他方案</a>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+import { createPanel, LOGO } from './assets/panel.js'
+
+document.getElementById('brandLogo').innerHTML = LOGO
+document.getElementById('footLogo').innerHTML = LOGO + '<span>iFolo</span>'
+
+/* ---------- 首屏的 3D 面板 ---------- */
+const stagePanel = document.getElementById('stagePanel')
+stagePanel.append(createPanel({ initial: 'editor', height: 560, tabs: true }))
+
+/* ---------- 放大裁切：同一块面板按不同倍数裁出局部 ---------- */
+const CROP_PANEL_H = 560
+document.querySelectorAll('.crop__inner').forEach((box) => {
+  const mode = box.dataset.panel
+  const p = createPanel({
+    initial: mode === 'cmd' || mode === 'search' ? (mode === 'cmd' ? 'editor' : 'search') : mode,
+    height: CROP_PANEL_H,
+    tabs: true,
+    interactive: false,
+  })
+  if (mode === 'cmd') p.__toggleCmd(true)
+  box.append(p)
+})
+
+/* ---------- 滚动扶正 ---------- */
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+if (!reduce) {
+  let raf = 0
+  const apply = () => {
+    raf = 0
+    const y = window.scrollY
+    // 0 → 420px 之间，从 16deg / .93 过渡到 0deg / 1
+    const t = Math.min(1, y / 420)
+    const rx = 16 * (1 - t)
+    const sc = 0.93 + 0.07 * t
+    stagePanel.style.setProperty('--rx', rx.toFixed(2) + 'deg')
+    stagePanel.style.setProperty('--sc', sc.toFixed(3))
+  }
+  window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(apply) }, { passive: true })
+  apply()
+}
+
+/* ---------- 色阶 ---------- */
+const RAMP = ['#F0F6FF','#DBEBFF','#B8D7FF','#8FBFFF','#70AEFF','#5CA3FF','#2380FB','#0965DC','#0D4DA0','#0F376B']
+document.getElementById('ramp').innerHTML = RAMP.map((c) => `<b style="background:${c}" title="${c}"></b>`).join('')
+
+/* ---------- 揭示 ---------- */
+document.querySelectorAll('.reveal').forEach((n, i) => setTimeout(() => n.classList.add('in'), 60 + i * 50))
+const io = new IntersectionObserver((es) => {
+  es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } })
+}, { threshold: 0.1 })
+document.querySelectorAll('.reveal').forEach((n) => io.observe(n))
+</script>
+</body>
+</html>

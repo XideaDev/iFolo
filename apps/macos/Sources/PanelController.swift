@@ -2,7 +2,7 @@ import AppKit
 import WebKit
 
 /// 面板控制器 —— 负责面板的创建、显隐、定位，以及 Web 内容与原生之间的消息桥。
-final class PanelController: NSObject {
+final class PanelController: NSObject, WKUIDelegate {
 
     static let shared = PanelController()
 
@@ -10,12 +10,32 @@ final class PanelController: NSObject {
     private var webView: WKWebView?
     private var outsideMonitor: Any?
 
-    /// 面板尺寸。宽度对齐编辑器里的 `--panel-width`。
-    private let panelWidth: CGFloat = 432
-    private let topInset: CGFloat = 8
-    private let bottomInset: CGFloat = 8
+    /// 计算当前允许的最大宽度（屏幕可见宽度的一半，至少 720pt）
+    func maxAllowedWidth(on screen: NSScreen? = nil) -> CGFloat {
+        let scr = screen ?? targetScreen()
+        let half = floor(scr.visibleFrame.width / 2.0)
+        return max(720, half)
+    }
+
+    /// 面板尺寸。宽度支持 320–(屏幕一半) 可调，默认 432
+    var currentWidth: CGFloat {
+        let val = UserDefaults.standard.double(forKey: "ifolo.panelWidth")
+        let maxW = maxAllowedWidth()
+        return val >= 320 && val <= maxW ? CGFloat(val) : 432
+    }
+
+    private var panelWidth: CGFloat {
+        get { currentWidth }
+        set {
+            let maxW = maxAllowedWidth()
+            let clamped = min(maxW, max(320, newValue))
+            UserDefaults.standard.set(Double(clamped), forKey: "ifolo.panelWidth")
+        }
+    }
+    private let topInset: CGFloat = 0
+    private let bottomInset: CGFloat = 0
     private let edgeGap: CGFloat = 0
-    private let cornerRadius: CGFloat = 13
+    private let cornerRadius: CGFloat = 16
 
     private override init() { super.init() }
 
@@ -35,6 +55,9 @@ final class PanelController: NSObject {
             return
         }
 
+        // 面板已显示期间，完全移除全局鼠标移动监听，杜绝 IPC 干扰与掉帧
+        EdgeTrigger.shared.stop()
+
         reposition(panel)
         // 必须用 orderFrontRegardless —— makeKeyAndOrderFront 在 App 非激活时会拒绝显示
         panel.orderFrontRegardless()
@@ -48,6 +71,8 @@ final class PanelController: NSObject {
         guard let panel else { return }
         removeOutsideMonitor()
         panel.orderOut(nil)
+        // 面板收起后，重新启动屏幕边缘触发监听
+        EdgeTrigger.shared.start()
         Log.write("面板隐藏")
     }
 
@@ -68,38 +93,25 @@ final class PanelController: NSObject {
 
     // MARK: - 创建
 
+    private func targetScreen() -> NSScreen {
+        let mouseLoc = NSEvent.mouseLocation
+        if let screenUnderMouse = NSScreen.screens.first(where: { NSMouseInRect(mouseLoc, $0.frame, false) }) {
+            return screenUnderMouse
+        }
+        return NSScreen.screens.first(where: { $0.frame.origin == .zero }) ?? NSScreen.main ?? NSScreen.screens[0]
+    }
+
     private func createPanel() {
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screen = targetScreen()
         let rect = panelRect(on: screen)
 
         let window = PanelWindow(contentRect: rect)
         let web = makeWebView(frame: NSRect(origin: .zero, size: rect.size))
 
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView(frame: NSRect(origin: .zero, size: rect.size))
-            glass.style = .regular
-            glass.cornerRadius = cornerRadius
-            // 内容必须通过 contentView 放进去，不是 addSubview
-            glass.contentView = web
-            window.contentView = glass
-            Log.write("使用 Liquid Glass（NSGlassEffectView）")
-        } else {
-            let effect = NSVisualEffectView(frame: NSRect(origin: .zero, size: rect.size))
-            effect.material = .popover
-            effect.blendingMode = .behindWindow
-            effect.state = .active
-            // 圆角只能用 maskImage —— 给 NSVisualEffectView 加 wantsLayer + cornerRadius
-            // 会强制离屏渲染，直接杀掉 behind-window 的毛玻璃采样
-            effect.maskImage = Self.roundedMask(size: rect.size, radius: cornerRadius)
-            effect.autoresizingMask = [.width, .height]
-            web.frame = effect.bounds
-            web.autoresizingMask = [.width, .height]
-            effect.addSubview(web)
-            window.contentView = effect
-            Log.write("使用 NSVisualEffectView（旧系统回退）")
-        }
-
-        // 赋值 contentViewController / contentView 可能顺带改窗口尺寸，再钉一次
+        window.contentView = web
+        window.contentView?.wantsLayer = true
+        window.contentView?.layer?.cornerRadius = cornerRadius
+        window.contentView?.layer?.masksToBounds = true
         window.setContentSize(rect.size)
 
         panel = window
@@ -115,10 +127,13 @@ final class PanelController: NSObject {
 
         let web = WKWebView(frame: frame, configuration: config)
         web.navigationDelegate = self
-        // 关掉 WebView 自己的白底，否则会把原生材质盖住
+        web.uiDelegate = self
         web.setValue(false, forKey: "drawsBackground")
         web.underPageBackgroundColor = .clear
         web.allowsLinkPreview = false
+        web.wantsLayer = true
+        web.layer?.cornerRadius = cornerRadius
+        web.layer?.masksToBounds = true
         return web
     }
 
@@ -144,17 +159,19 @@ final class PanelController: NSObject {
 
     private func panelRect(on screen: NSScreen) -> NSRect {
         let visible = screen.visibleFrame
+        let maxW = maxAllowedWidth(on: screen)
+        let actualWidth = min(maxW, max(320, panelWidth))
         let height = visible.height - topInset - bottomInset
         return NSRect(
-            x: visible.maxX - panelWidth - edgeGap,
+            x: visible.maxX - actualWidth - edgeGap,
             y: visible.minY + bottomInset,
-            width: panelWidth,
+            width: actualWidth,
             height: max(320, height)
         )
     }
 
     private func reposition(_ panel: PanelWindow) {
-        guard let screen = NSScreen.main else { return }
+        let screen = targetScreen()
         panel.setFrame(panelRect(on: screen), display: false)
     }
 
@@ -190,18 +207,16 @@ final class PanelController: NSObject {
         Log.write("请求新建快速笔记")
     }
 
-    // MARK: - 辅助
-
-    private static func roundedMask(size: NSSize, radius: CGFloat) -> NSImage {
-        let image = NSImage(size: size, flipped: false) { rect in
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
-            return true
-        }
-        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
-        image.resizingMode = .stretch
-        return image
+    /// 调节面板宽度（320–屏幕一半）
+    func setWidth(_ width: CGFloat) {
+        panelWidth = width
+        guard let panel, let screen = panel.screen ?? NSScreen.main else { return }
+        panel.setFrame(panelRect(on: screen), display: true, animate: false)
+        Log.write("面板宽度更新为 \(width)")
     }
+
+
+    // MARK: - 辅助
 
     private static let missingEditorHTML = """
     <html><body style="font:13px -apple-system;padding:24px;color:#A91E22">
@@ -236,7 +251,7 @@ extension PanelController: WKNavigationDelegate {
           };
         })()
         """
-        webView.evaluateJavaScript(probe) { [weak self] value, error in
+        webView.evaluateJavaScript(probe) { value, error in
             if let error {
                 Log.write("Web 探针失败：\(error.localizedDescription)")
                 return
@@ -260,5 +275,41 @@ extension PanelController: WKNavigationDelegate {
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         Log.write("Web 内容进程被终止（可能内存不足），重载")
         loadEditor(into: webView)
+    }
+
+    // MARK: - WKUIDelegate (支持系统输入对话框与确认弹窗)
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptTextInputPanelWithPrompt prompt: String,
+        defaultText: String?,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping (String?) -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = prompt
+        alert.addButton(withTitle: "确定")
+        alert.addButton(withTitle: "取消")
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
+        input.stringValue = defaultText ?? ""
+        alert.accessoryView = input
+        if alert.runModal() == .alertFirstButtonReturn {
+            completionHandler(input.stringValue)
+        } else {
+            completionHandler(nil)
+        }
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptConfirmPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping (Bool) -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.addButton(withTitle: "确定")
+        alert.addButton(withTitle: "取消")
+        completionHandler(alert.runModal() == .alertFirstButtonReturn)
     }
 }

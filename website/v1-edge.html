@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iFolo · 方案一 · 边缘触发式</title>
+<meta name="description" content="iFolo —— 屏幕边缘笔记。指针碰到屏幕边缘，笔记就浮在你手头的工作之上。">
+<link rel="stylesheet" href="./assets/tokens.css">
+<link rel="stylesheet" href="./assets/panel.css">
+<link rel="stylesheet" href="./assets/site.css">
+<style>
+/* ============================================================================
+   方案一 · 边缘触发式
+   ----------------------------------------------------------------------------
+   核心思路：官网首页直接复刻产品的核心交互 —— 面板藏在屏幕右边缘，
+   指针碰一下才滑出来。访客不用读文案，手一动就懂了。
+
+   两幕结构：
+     第一幕（100vh）  面板收起，只露 10px。碰右边缘 → 按真机的 320ms 曲线滑出。
+     第二幕（滚动）   面板常驻右侧，滚动到不同章节时切换面板状态。
+   ========================================================================= */
+
+/* ---------- 导航 ---------- */
+.nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 40;
+  height: 60px; display: flex; align-items: center; gap: 10px;
+  padding: 0 26px;
+  background: rgba(255, 255, 255, .66);
+  border-bottom: 1px solid rgba(255, 255, 255, .7);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+}
+.nav__brand { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+.nav__brand svg { width: 22px; height: 22px; }
+.nav__links { margin-left: 22px; display: flex; gap: 4px; }
+.nav__links a {
+  font-size: 13.5px; font-weight: 550; color: var(--ink-600);
+  padding: 7px 12px; border-radius: 8px; transition: background var(--dur-hover), color var(--dur-hover);
+}
+.nav__links a:hover { background: rgba(16, 24, 40, .05); color: var(--ink-900); }
+.nav__right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* ---------- 停靠区（整个页面共用一块面板） ---------- */
+.dock {
+  position: fixed; top: 0; right: 0; z-index: 30;
+  height: 100vh; display: flex; align-items: center;
+  padding: 60px 0 22px;
+  transition: transform 320ms cubic-bezier(.32, .72, 0, 1);
+}
+/* 收起：只露 10px，让人知道「这里有东西」 */
+.dock { transform: translateX(calc(100% - 10px)); }
+body[data-act="story"] .dock,
+.dock:hover,
+body.is-peek .dock { transform: translateX(0); }
+
+/* 面板边缘的「把手」：收起时的可见部分 */
+.dock__grip {
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 10px; height: 116px; border-radius: 6px 0 0 6px;
+  background: rgba(255, 255, 255, .92);
+  border: 1px solid rgba(16, 24, 40, .07); border-right: none;
+  box-shadow: -6px 0 18px -8px rgba(20, 22, 40, .3);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+}
+.dock__grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-300); }
+.dock__grip i:first-child { background: var(--blue-500); }
+
+/* 右边缘热区：真机是 3pt，网页上放大到 26px 才好碰 */
+.hot {
+  position: fixed; top: 60px; right: 0; bottom: 0; width: 26px; z-index: 31;
+}
+.hot__line {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 130px; border-radius: 3px 0 0 3px;
+  background: var(--blue-500);
+  box-shadow: 0 0 0 0 rgba(92, 163, 255, .5);
+  animation: pulse 2.6s ease-out infinite;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(92, 163, 255, .45); }
+  70%  { box-shadow: 0 0 0 14px rgba(92, 163, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(92, 163, 255, 0); }
+}
+body[data-act="story"] .hot, body.is-peek .hot { opacity: 0; pointer-events: none; }
+body[data-act="story"] .dock__grip, body.is-peek .dock__grip { opacity: 0; }
+.dock__grip { transition: opacity 200ms var(--ease-out); }
+
+/* 面板投影：贴边时朝左投 */
+.dock .ifp { --ifp-op: .93; box-shadow: -34px 0 80px -30px rgba(20, 22, 40, .4), 0 24px 60px -30px rgba(20, 22, 40, .3), inset 0 0 0 1px rgba(16, 24, 40, .05); }
+
+/* ---------- 第一幕 ---------- */
+.hero {
+  min-height: 100vh; display: flex; align-items: center;
+  padding: 120px 0 70px;
+}
+.hero__grid { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 560px; }
+.hero h1 { margin: 20px 0 0; }
+.hero .lead { margin-top: 22px; max-width: 470px; }
+.hero__cta { display: flex; gap: 11px; margin-top: 32px; flex-wrap: wrap; }
+
+.hero__hint {
+  margin-top: 42px; display: inline-flex; align-items: center; gap: 11px;
+  padding: 11px 16px 11px 13px; border-radius: 12px;
+  background: rgba(255, 255, 255, .74); border: 1px solid rgba(255, 255, 255, .85);
+  box-shadow: 0 12px 30px -20px rgba(20, 22, 40, .4);
+  backdrop-filter: blur(12px);
+  font-size: 13px; font-weight: 600; color: var(--ink-700);
+  cursor: default;
+}
+.hero__hint .track {
+  width: 74px; height: 22px; border-radius: 6px; position: relative;
+  background: var(--ink-100); overflow: hidden; flex: 0 0 auto;
+}
+.hero__hint .track .bar { position: absolute; inset: 3px; border-radius: 4px; background: #fff; border: 1px solid var(--ink-200); }
+.hero__hint .track .dot {
+  position: absolute; top: 50%; left: 4px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--ink-900); transform: translateY(-50%);
+  animation: slide 2.8s cubic-bezier(.5, 0, .5, 1) infinite;
+}
+@keyframes slide {
+  0%, 18%   { left: 4px; }
+  52%, 68%  { left: 61px; }
+  100%      { left: 4px; }
+}
+
+.hero__stats { display: flex; gap: 34px; margin-top: 46px; flex-wrap: wrap; }
+.hero__stat .n { font-size: 25px; font-weight: 700; letter-spacing: -.03em; }
+.hero__stat .l { font-size: 12px; color: var(--ink-500); margin-top: 3px; }
+
+/* ---------- 第二幕：滚动分镜 ---------- */
+/* 4 屏高度，让每张卡片有足够滚动区间。
+   注意：sticky 的活动空间来自 .wrap，所以高度必须落在 .wrap 上 —— 
+   只给 section 设 min-height 的话，.wrap 仍只有 100vh，卡片会直接滚走。 */
+.story { position: relative; }
+.story > .wrap { min-height: 400vh; }
+/* 隐喻：桌面上的两扇窗 —— 左边一扇讲，右边一扇演。
+   左侧是随滚动换内容的玻璃卡片，右侧是产品面板本体。 */
+.story__stage {
+  position: sticky; top: 0; height: 100vh;
+  display: grid; place-items: center start;
+}
+.story__stack { display: grid; }
+.story__block {
+  grid-area: 1 / 1;
+  width: min(600px, 45vw);
+  padding: 34px 34px 36px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .76);
+  border: 1px solid rgba(255, 255, 255, .85);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 26px 60px -34px rgba(16, 24, 40, .34);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  opacity: 0; transform: translateY(14px) scale(.985);
+  transition: opacity 460ms var(--ease-out), transform 460ms var(--ease-out);
+  pointer-events: none;
+}
+.story__block.on { opacity: 1; transform: none; }
+.story__block .n {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
+  color: var(--blue-700); letter-spacing: .08em; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 9px;
+}
+.story__block .n:after { content: ""; flex: 1; height: 1px; background: var(--blue-100); }
+.story__block h3 { margin: 0 0 14px; }
+.story__block p { margin: 0; }
+.story__block .keys { display: flex; gap: 7px; margin-top: 22px; align-items: center; flex-wrap: wrap; }
+.story__block .keys span { font-size: 12.5px; color: var(--ink-500); }
+
+/* 第二幕里，停靠面板常驻并把不透明度提到 .95，保证长文可读 */
+body[data-act="story"] .dock .ifp { --ifp-op: .95; }
+
+/* 进度条 */
+.progress {
+  position: fixed; left: 26px; top: 50%; transform: translateY(-50%); z-index: 20;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.progress b {
+  width: 3px; height: 26px; border-radius: 3px; background: var(--ink-200);
+  transition: background 300ms var(--ease-out), height 300ms var(--ease-out);
+}
+.progress b.on { background: var(--blue-700); height: 40px; }
+
+/* ---------- 能力卡 ---------- */
+.abilities { padding: 30px 0 100px; }
+.abilities__head { max-width: 620px; }
+.abilities__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 44px; }
+.ability { padding: 26px 24px 28px; position: relative; overflow: hidden; }
+.ability .no {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: var(--ink-400); letter-spacing: .08em;
+}
+.ability h3 { margin: 14px 0 10px; }
+.ability p { margin: 0; font-size: 13.5px; line-height: 1.7; color: var(--ink-600); }
+.ability .tag {
+  display: inline-block; margin-top: 16px; font-size: 11px; font-weight: 700;
+  padding: 3px 9px; border-radius: 6px;
+}
+.ability .tag.b { background: var(--blue-50); color: var(--blue-700); }
+.ability .tag.o { background: var(--orange-50); color: var(--orange-800); }
+.ability .tag.g { background: var(--green-50); color: var(--green-800); }
+.ability::after {
+  content: ""; position: absolute; right: -40px; top: -40px; width: 120px; height: 120px;
+  border-radius: 50%; opacity: .1;
+}
+.ability:nth-child(1)::after { background: var(--blue-500); }
+.ability:nth-child(2)::after { background: var(--orange-500); }
+.ability:nth-child(3)::after { background: var(--green-500); }
+
+/* ---------- 底栏 ---------- */
+.foot { padding: 60px 0 70px; border-top: 1px solid rgba(16, 24, 40, .07); }
+.foot__grid { display: flex; align-items: flex-end; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
+.foot__brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; }
+.foot__brand svg { width: 20px; height: 20px; }
+.foot__meta { font-size: 12.5px; color: var(--ink-500); margin-top: 8px; }
+.foot__links { display: flex; gap: 20px; font-size: 13px; color: var(--ink-600); }
+
+/* ---------- 窄屏回退：停靠区太占地方，改成静态展示 ---------- */
+@media (max-width: 1120px) {
+  .dock, .hot, .progress { display: none; }
+  .hero__grid { max-width: none; }
+  .hero { padding-bottom: 40px; min-height: auto; }
+  .story > .wrap { min-height: auto; padding: 30px 0 50px; }
+  .story__stage { position: static; height: auto; display: block; }
+  .story__stack { display: block; }
+  .story__block {
+    grid-area: auto; width: auto; opacity: 1; transform: none;
+    pointer-events: auto; margin-bottom: 18px;
+  }
+  .abilities__grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .nav__links { display: none; }
+  .hero__stats { gap: 22px; }
+}
+</style>
+</head>
+<body data-act="hero">
+<div class="ambient"></div>
+
+<!-- 导航 -->
+<header class="nav">
+  <span class="nav__brand" id="brandLogo"></span>
+  <nav class="nav__links">
+    <a href="#story">功能</a>
+    <a href="#abilities">差异</a>
+    <a href="#keys">快捷键</a>
+  </nav>
+  <div class="nav__right">
+    <a class="btn btn--ghost btn--sm" href="#keys">看快捷键</a>
+    <a class="btn btn--primary btn--sm" href="#download">下载 macOS 版</a>
+  </div>
+</header>
+
+<!-- 停靠面板：整页共用一块 -->
+<div class="dock" id="dock">
+  <div class="dock__grip" title="指针移到这里"><i></i><i></i><i></i></div>
+</div>
+<div class="hot" id="hot"><span class="hot__line"></span></div>
+
+<!-- 第一幕 -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero__grid">
+      <span class="eyebrow reveal"><i></i>屏幕边缘笔记 · 跨 Mac / Windows</span>
+      <h1 class="h-display reveal">想到就写，<br>不用切窗口。</h1>
+      <p class="lead reveal">
+        iFolo 把笔记面板藏在屏幕边缘。指针碰一下右边缘，它就浮在你手头的工作之上——
+        写完随手收起，不打断心流。
+      </p>
+      <div class="hero__cta reveal">
+        <a class="btn btn--primary" href="#download">下载 macOS 版</a>
+        <a class="btn btn--ghost" href="#story">看它怎么工作</a>
+      </div>
+
+      <div class="hero__hint reveal">
+        <span class="track"><span class="bar"></span><span class="dot"></span></span>
+        <span>把指针移到屏幕右边缘试试</span>
+      </div>
+
+      <div class="hero__stats reveal">
+        <div class="hero__stat"><div class="n">3<span style="font-size:15px;font-weight:600">pt</span></div><div class="l">触发热区宽度</div></div>
+        <div class="hero__stat"><div class="n">120<span style="font-size:15px;font-weight:600">ms</span></div><div class="l">停留即呼出</div></div>
+        <div class="hero__stat"><div class="n">0</div><div class="l">窗口切换</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 进度条 -->
+<div class="progress" id="progress"></div>
+
+<!-- 第二幕 -->
+<section class="story" id="story">
+  <div class="wrap">
+    <div class="story__stage">
+    <div class="story__stack" id="blocks">
+        <div class="story__block" data-state="list" data-label="笔记列表">
+          <div class="n">01 — 呼出</div>
+          <h3 class="h-2">碰一下就出来，不抢焦点</h3>
+          <p class="body">
+            面板用 <code class="mono">.nonactivatingPanel</code> 实现，呼出后<b>你的当前窗口仍是前台</b>。
+            不用点两下，不用切应用——指针碰边缘，面板就位，光标已经在编辑器里。
+          </p>
+          <div class="keys"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd><span>呼出 / 收起</span></div>
+        </div>
+
+        <div class="story__block" data-state="editor" data-label="编辑器">
+          <div class="n">02 — 写</div>
+          <h3 class="h-2">是一个真编辑器，不是便签框</h3>
+          <p class="body">
+            标题、列表、任务、代码块、引用、表格、行内代码、链接、高亮、颜色。
+            工具栏解决「先选格式再打字」，选中气泡解决「先选文字再改格式」——两条路径都不绕。
+          </p>
+          <div class="keys"><span>悬停段落左侧出现手柄，可拖拽重排</span></div>
+        </div>
+
+        <div class="story__block" data-state="cmd" data-label="命令面板">
+          <div class="n">03 — 找</div>
+          <h3 class="h-2">⌘K 一个入口，够用到底</h3>
+          <p class="body">
+            新建、切换列表、搜索、调透明度、收起面板——全部收在一个命令面板里。
+            手不离键盘就能完成所有操作。
+          </p>
+          <div class="keys"><kbd>⌘</kbd><kbd>K</kbd><span>命令面板</span></div>
+        </div>
+
+        <div class="story__block" data-state="search" data-label="语义检索">
+          <div class="n">04 — 找回</div>
+          <h3 class="h-2">记不住关键词，也能搜到</h3>
+          <p class="body">
+            基于 macOS 原生 <code class="mono">NLEmbedding</code> 的 300 维向量索引，
+            <b>完全脱机、零模型体积</b>。关键词稀疏匹配 + 向量余弦相似度混合排序，
+            用一句自然语言就能找回你写过的东西。
+          </p>
+          <div class="keys"><kbd>⌘</kbd><kbd>F</kbd><span>搜索笔记内容</span></div>
+        </div>
+    </div>
+    </div>
+  </div>
+</section>
+
+<!-- 差异能力 -->
+<section class="abilities" id="abilities">
+  <div class="wrap">
+    <div class="abilities__head">
+      <span class="eyebrow reveal"><i></i>为什么不是又一个笔记应用</span>
+      <h2 class="h-1 reveal" style="margin-top:16px">这个品类被锁在 Apple 生态里太久了</h2>
+      <p class="lead reveal" style="margin-top:16px">
+        成熟的屏幕边缘笔记已经有几款，但它们都只服务 Mac。同时检索能力普遍停在「关键词 + 标签」——
+        笔记越记越多，越找越难。iFolo 想做三件它们结构性做不到的事。
+      </p>
+    </div>
+    <div class="abilities__grid">
+      <div class="card ability reveal">
+        <div class="no">01</div>
+        <h3 class="h-3">跨平台</h3>
+        <p>外壳原生、编辑器在 Web 层。同一套编辑器代码直接复用到 Windows 外壳，不必重写两遍。Mac 和 Windows 用同一份笔记。</p>
+        <span class="tag b">原生外壳 + Web 编辑器</span>
+      </div>
+      <div class="card ability reveal">
+        <div class="no">02</div>
+        <h3 class="h-3">同步不设体积上限</h3>
+        <p>附件走独立通道，正文才进同步日志。一条带十几张截图的笔记，不会因为「太大」被静默跳过同步。</p>
+        <span class="tag o">附件与正文分离</span>
+      </div>
+      <div class="card ability reveal">
+        <div class="no">03</div>
+        <h3 class="h-3">语义检索</h3>
+        <p>用一句自然语言找回你写过的东西，而不必记得当时用了哪个词。索引全在本机，完全脱机。</p>
+        <span class="tag g">300 维 · 本地向量</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 快捷键 -->
+<section class="abilities" id="keys" style="padding-top:0">
+  <div class="wrap">
+    <div class="card reveal" style="padding:34px 34px 36px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.35fr); gap:44px; align-items:center">
+      <div>
+        <span class="eyebrow"><i></i>键盘优先</span>
+        <h2 class="h-2" style="margin-top:14px">手不用离开键盘</h2>
+        <p class="body" style="margin-top:12px">
+          面板是给「正在做别的事」的人用的，所以每一个动作都有快捷键。
+          所有键位都可在设置里改。
+        </p>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px 26px">
+        <div style="display:flex;align-items:center;gap:10px"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>N</kbd><span class="small" style="margin-left:auto">呼出 / 收起面板</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><kbd>⌥</kbd><kbd>⌘</kbd><kbd>M</kbd><span class="small" style="margin-left:auto">新建快速笔记</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><kbd>⌘</kbd><kbd>K</kbd><span class="small" style="margin-left:auto">命令面板</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><kbd>⌘</kbd><kbd>L</kbd><span class="small" style="margin-left:auto">笔记列表</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><kbd>⌘</kbd><kbd>F</kbd><span class="small" style="margin-left:auto">搜索笔记内容</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><kbd>/</kbd><span class="small" style="margin-left:auto">唤出块命令</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 底栏 -->
+<footer class="foot" id="download">
+  <div class="wrap foot__grid">
+    <div>
+      <div class="foot__brand" id="footLogo"></div>
+      <div class="foot__meta">屏幕边缘笔记 · 跨 Mac / Windows · 早期开发中</div>
+    </div>
+    <div class="foot__links">
+      <a href="#story">功能</a>
+      <a href="#abilities">差异</a>
+      <a href="#keys">快捷键</a>
+      <a href="./index.html">其他方案</a>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+import { createPanel, LOGO } from './assets/panel.js'
+
+document.getElementById('brandLogo').innerHTML = LOGO
+document.getElementById('footLogo').innerHTML = LOGO + '<span>iFolo</span>'
+document.querySelectorAll('.reveal').forEach((n, i) => {
+  setTimeout(() => n.classList.add('in'), 60 + i * 55)
+})
+
+/* ---------- 面板尺寸自适应视口 ---------- */
+// 面板总高 = 顶栏36 + 标签条30 + 工具栏34 + 正文 + 状态栏26 ≈ 正文 + 126
+// 停靠区可用高 = 视口 - 导航60 - 上下内边距22
+const panelH = () => Math.max(320, Math.min(700, window.innerHeight - 60 - 22 - 126))
+
+/* ---------- 全页共用一块面板 ----------
+   第一幕：藏在右边缘，指针碰到才滑出。
+   第二幕：常驻，滚动到不同章节时切换视图。 */
+const panel = createPanel({ initial: 'editor', height: panelH(), tabs: true })
+document.getElementById('dock').append(panel)
+
+/* ---------- 边缘触发：碰右边缘就滑出 ---------- */
+const hot = document.getElementById('hot')
+const dock = document.getElementById('dock')
+let peekTimer
+
+function peek(on) {
+  document.body.classList.toggle('is-peek', on)
+}
+hot.addEventListener('mouseenter', () => { clearTimeout(peekTimer); peek(true) })
+dock.addEventListener('mouseenter', () => { clearTimeout(peekTimer); peek(true) })
+dock.addEventListener('mouseleave', () => {
+  if (document.body.dataset.act === 'story') return
+  peekTimer = setTimeout(() => peek(false), 900)
+})
+hot.addEventListener('mouseleave', () => {
+  if (document.body.dataset.act === 'story') return
+  peekTimer = setTimeout(() => peek(false), 700)
+})
+
+/* ---------- 滚动驱动：切换幕与面板状态 ---------- */
+const blocks = [...document.querySelectorAll('.story__block')]
+const storyEl = document.getElementById('story')
+const progress = document.getElementById('progress')
+progress.innerHTML = blocks.map((b) => `<b title="${b.dataset.label}"></b>`).join('')
+const bars = [...progress.children]
+
+// 状态映射：块 data-state 决定面板显示什么
+const STATE_MAP = { list: 'list', editor: 'editor', cmd: 'editor', search: 'search' }
+
+function applyState(name) {
+  if (name === 'cmd') {
+    panel.__show('editor')
+    panel.__toggleCmd(true)
+  } else {
+    panel.__toggleCmd(false)
+    panel.__show(STATE_MAP[name] || 'list')
+  }
+}
+
+// 卡片是堆叠的，IntersectionObserver 区分不出「当前是哪一张」，
+// 所以按滚动进度算：section 高 4 屏，进度决定索引。
+let curIdx = -1
+function syncStory() {
+  const rect = storyEl.getBoundingClientRect()
+  const span = storyEl.offsetHeight - window.innerHeight
+  const p = span > 0 ? Math.min(1, Math.max(0, -rect.top / span)) : 0
+  const i = Math.min(blocks.length - 1, Math.floor(p * blocks.length))
+  if (i === curIdx) return
+  curIdx = i
+  blocks.forEach((b, k) => b.classList.toggle('on', k === i))
+  bars.forEach((b, k) => b.classList.toggle('on', k === i))
+  applyState(blocks[i].dataset.state)
+}
+window.addEventListener('scroll', syncStory, { passive: true })
+
+// 进入第二幕 → 面板常驻
+const ioStory = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((en) => {
+      document.body.dataset.act = en.isIntersecting ? 'story' : 'hero'
+      if (en.isIntersecting) { peek(false) }
+    })
+  },
+  { threshold: 0.02 }
+)
+ioStory.observe(storyEl)
+syncStory()
+
+/* ---------- 滚动揭示 ---------- */
+const ioReveal = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((en) => {
+      if (en.isIntersecting) { en.target.classList.add('in'); ioReveal.unobserve(en.target) }
+    })
+  },
+  { threshold: 0.12 }
+)
+document.querySelectorAll('.reveal').forEach((n) => ioReveal.observe(n))
+
+/* ---------- 视口变化 ---------- */
+let rz
+window.addEventListener('resize', () => {
+  clearTimeout(rz)
+  rz = setTimeout(() => {
+    panel.querySelector('.ifp__body').style.height = panelH() + 'px'
+  }, 180)
+})
+</script>
+</body>
+</html>
