@@ -56,12 +56,14 @@ final class MessageBridge: NSObject, WKScriptMessageHandler {
                 "content": content,
                 "panelWidth": Double(PanelController.shared.currentWidth),
                 "panelOpacity": UserDefaults.standard.object(forKey: "ifolo.panelOpacity") as? Double ?? 0.82,
+                "cardOpacity": UserDefaults.standard.object(forKey: "ifolo.cardOpacity") as? Double ?? 0.90,
                 "statusBarIcon": UserDefaults.standard.string(forKey: "ifolo.statusBarIcon") ?? "notebook",
             ])
-            // 面板以半透明覆盖在原生材质上，恢复用户配置或默认 0.82
+            // 恢复透明度配置（面板透明度与卡片透明度独立无级调控）
             let savedOpacity = UserDefaults.standard.object(forKey: "ifolo.panelOpacity") as? Double ?? 0.82
+            let savedCardOpacity = UserDefaults.standard.object(forKey: "ifolo.cardOpacity") as? Double ?? 0.90
             PanelController.shared.evaluate(
-                "document.documentElement.style.setProperty('--panel-opacity', '\(savedOpacity)')"
+                "document.documentElement.style.setProperty('--panel-opacity', '\(savedOpacity)'); document.documentElement.style.setProperty('--card-opacity', '\(savedCardOpacity)');"
             )
 
         case "list":
@@ -123,6 +125,16 @@ final class MessageBridge: NSObject, WKScriptMessageHandler {
                 UserDefaults.standard.set(clamped, forKey: "ifolo.panelOpacity")
                 PanelController.shared.evaluate(
                     "document.documentElement.style.setProperty('--panel-opacity', '\(clamped)')"
+                )
+            }
+            reply(id, ok: true, payload: NSNull())
+
+        case "setCardOpacity":
+            if let value = params["value"] as? Double {
+                let clamped = min(1.0, max(0.4, value))
+                UserDefaults.standard.set(clamped, forKey: "ifolo.cardOpacity")
+                PanelController.shared.evaluate(
+                    "document.documentElement.style.setProperty('--card-opacity', '\(clamped)')"
                 )
             }
             reply(id, ok: true, payload: NSNull())
@@ -210,6 +222,19 @@ final class MessageBridge: NSObject, WKScriptMessageHandler {
                 StatusItem.shared?.updateIcon(named: iconName)
             }
             reply(id, ok: true, payload: NSNull())
+        case "setEdgeHover":
+            if let enabled = params["enabled"] as? Bool {
+                UserDefaults.standard.set(enabled, forKey: "ifolo.edgeHover")
+                Log.write("设置边缘贴靠触发: \(enabled)")
+            }
+            reply(id, ok: true, payload: NSNull())
+
+        case "setAutoHide":
+            if let enabled = params["enabled"] as? Bool {
+                UserDefaults.standard.set(enabled, forKey: "ifolo.autoHide")
+                Log.write("设置失焦自动隐藏: \(enabled)")
+            }
+            reply(id, ok: true, payload: NSNull())
 
         default:
             Log.write("未知方法：\(method)")
@@ -224,8 +249,11 @@ final class MessageBridge: NSObject, WKScriptMessageHandler {
         if let data = try? JSONSerialization.data(withJSONObject: [payload]),
            let text = String(data: data, encoding: .utf8) {
             // 剥掉外层 [...]，只取值
-            let inner = text.dropFirst(1).dropLast(1)
-            json = String(inner)
+            var inner = String(text.dropFirst(1).dropLast(1))
+            // 转义 JavaScript 行/段分隔符，杜绝注入 SyntaxError
+            inner = inner.replacingOccurrences(of: "\u{2028}", with: "\\u2028")
+            inner = inner.replacingOccurrences(of: "\u{2029}", with: "\\u2029")
+            json = inner
         } else {
             json = "null"
         }

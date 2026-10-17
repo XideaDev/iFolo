@@ -27,6 +27,8 @@
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
+    "@types/node": "^26.6.5",
+    "happy-dom": "^21.0.3",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
     "vitest": "^5.0.4"

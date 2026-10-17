@@ -26,13 +26,14 @@ import {
 } from 'prosemirror-inputrules'
 
 import { schema, nodes, marks, PLACEHOLDER } from './schema'
-import { parseMarkdown, serializeDoc, emptyDoc, docTitle, cleanTitle, hasTodoContent } from './markdown'
+import { parseMarkdown, serializeDoc, emptyDoc, docTitle, cleanTitle, hasTodoContent, stripMarkdown } from './markdown'
 import {
   createBridge,
   NoteMeta,
   FolderItem,
   extractTags,
   getStoredSearchState,
+  isDefaultSearchEnabled,
   isDefaultNavEnabled,
   setStoredStatusBarIcon,
 } from './storage'
@@ -43,7 +44,6 @@ import { el, ICONS } from './ui/dom'
 import { statusByKey, nextStatus, TASK_STATUSES } from './taskstatus'
 import { NoteList, CommandItem } from './ui/notelist'
 import { PanelResizer } from './ui/resizer'
-import { CommandPalette } from './ui/cmdpalette'
 import { EditorSearch, createDocSearchPlugin } from './ui/editorsearch'
 import { SettingsView, initThemeListener } from './ui/settings'
 
@@ -234,7 +234,6 @@ let slashMenu: SlashMenu
 let noteList: NoteList
 let editorSearch: EditorSearch
 let panelResizer: PanelResizer
-let cmdPalette: CommandPalette
 let activeId: string | null = null
 let notes: NoteMeta[] = []
 let folders: FolderItem[] = []
@@ -309,11 +308,13 @@ function updateTopbar() {
     topbarTitle.style.display = 'none'
     topbarTitle.textContent = ''
     topbarCount.style.display = 'none'
+    const showSearchBtn = !isDefaultSearchEnabled()
     if (searchBtnEl) {
       searchBtnEl.title = '搜索笔记 (⌘F)'
+      searchBtnEl.style.display = showSearchBtn ? 'inline-flex' : 'none'
       searchBtnEl.classList.toggle('ibtn--active', noteList ? noteList.isSearchVisible() : false)
     }
-    topbarActions.replaceChildren(searchBtnEl, plusBtnEl)
+    topbarActions.replaceChildren(...(showSearchBtn ? [searchBtnEl] : []), plusBtnEl)
   } else {
     topbarBackBtn.style.display = 'none'
     topbarLogo.style.display = 'flex'
@@ -321,12 +322,13 @@ function updateTopbar() {
     topbarTitle.style.display = 'none'
     topbarTitle.textContent = ''
     topbarCount.style.display = 'none'
+    const showSearchBtn = !isDefaultSearchEnabled()
     if (searchBtnEl) {
       searchBtnEl.title = '在当前文档中查找 (⌘F)'
+      searchBtnEl.style.display = showSearchBtn ? 'inline-flex' : 'none'
       searchBtnEl.classList.toggle('ibtn--active', editorSearch ? editorSearch.isVisible() : false)
     }
-    // 编辑页保留 🔍 按钮与筛选按钮，右侧改为跟主面板一样的 + 按钮
-    topbarActions.replaceChildren(searchBtnEl, plusBtnEl)
+    topbarActions.replaceChildren(...(showSearchBtn ? [searchBtnEl] : []), plusBtnEl)
     updateEditorCrumb()
   }
 }
@@ -485,7 +487,7 @@ function buildShell() {
 
   topbarLogo.addEventListener('click', () => {
     if (viewMode === 'list') {
-      cmdPalette.toggle()
+      noteList.toggleCommandMode()
     } else {
       switchViewMode('list')
     }
@@ -538,6 +540,7 @@ function buildShell() {
         else editorSearch?.hide()
         searchBtnEl?.classList.toggle('ibtn--active', enabled)
       }
+      updateTopbar()
     },
     onToggleDefaultFilter: (enabled) => {
       noteList.setFilterVisible(enabled)
@@ -594,19 +597,6 @@ function buildShell() {
     (w) => void bridge.setWidth(w),
   )
 
-  cmdPalette = new CommandPalette({
-    getNotes: () => notes,
-    onOpenNote: (id) => void openNote(id),
-    onNewNote: () => void newNote(),
-    onToggleList: () => toggleViewMode(),
-    onSearch: () => {
-      if (viewMode !== 'list') switchViewMode('list')
-      noteList.setSearchVisible(true)
-    },
-    onSetOpacity: (v) => void bridge.setOpacity(v),
-    onClosePanel: () => void bridge.closePanel(),
-    onOpenSettings: () => switchViewMode('settings'),
-  })
 
   const statusbar = el('div', { class: 'statusbar' }, [
     el('span', {}, ['⌥⌘N 呼出 · ⌘K 命令面板 · ⌘L 笔记列表 · / 命令']),
@@ -614,7 +604,7 @@ function buildShell() {
   ])
 
   // 用 replaceChildren 而不是 append —— 否则 index.html 里的启动占位符会留在 DOM 里
-  root.replaceChildren(panelResizer.dom, topbar, tabstrip, editorScrollEl, noteList.dom, settingsView.dom, statusbar, cmdPalette.dom)
+  root.replaceChildren(panelResizer.dom, topbar, tabstrip, editorScrollEl, noteList.dom, settingsView.dom, statusbar)
   return { editorWrap, editorScroll: editorScrollEl }
 }
 
@@ -733,7 +723,8 @@ async function flushSave() {
       meta.updatedAt = Date.now()
       const lines = markdown.split('\n').filter((l) => l.trim().length > 0)
       if (lines.length > 1) {
-        meta.snippet = lines.slice(1).join(' ').slice(0, 80)
+        const rawSnippet = lines.slice(1).join(' ')
+        meta.snippet = stripMarkdown(rawSnippet).slice(0, 80)
       }
       meta.tags = extractTags(markdown)
       meta.hasTodo = hasTodoContent(markdown)
@@ -905,14 +896,19 @@ const setParagraphBelow: Command = (state, dispatch, viewRef) => {
   viewRef?.focus()
   return true
 }
+let openingNoteId: string | null = null
+
 
 async function openNote(id: string) {
   if (id === activeId) return
+  openingNoteId = id
   await flushSave()
+  if (openingNoteId !== id) return
   if (!openTabIds.includes(id)) {
     openTabIds.push(id)
   }
   const content = await bridge.load(id)
+  if (openingNoteId !== id) return
   activeId = id
   const doc = content.trim() ? parseMarkdown(content) : emptyDoc()
   view.updateState(
@@ -1014,6 +1010,8 @@ async function boot() {
   if (payload.panelOpacity !== undefined) {
     document.documentElement.style.setProperty('--panel-opacity', String(payload.panelOpacity))
   }
+  const cardOp = Number(localStorage.getItem('ifolo.card_opacity')) || 0.90
+  document.documentElement.style.setProperty('--card-opacity', String(cardOp))
   if (payload.statusBarIcon) {
     setStoredStatusBarIcon(payload.statusBarIcon)
   }
@@ -1043,9 +1041,14 @@ async function boot() {
       return
     }
     // ⌘K / Ctrl-K 唤起命令面板 (原型图 04)
+    // ⌘K / Ctrl-K 唤起命令面板
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault()
-      cmdPalette.toggle()
+      if (viewMode === 'list') {
+        noteList.toggleCommandMode()
+      } else {
+        editorSearch.toggleCommandMode()
+      }
       return
     }
     // ⌘L / Ctrl-L 切换笔记列表
@@ -1068,9 +1071,15 @@ async function boot() {
     }
     // Esc: 优先收起命令面板；偏好设置返回；其次收起编辑器内搜索；再次收起列表搜索；再次编辑器模式返回列表；最后收起边缘面板
     if (e.key === 'Escape') {
-      if (cmdPalette.dom.style.display !== 'none') {
+      if (viewMode === 'list' && noteList.isCommandMode()) {
         e.preventDefault()
-        cmdPalette.close()
+        noteList.closeCommandMode()
+        return
+      }
+      if (viewMode === 'editor' && editorSearch.isCommandMode()) {
+        e.preventDefault()
+        editorSearch.closeCommandMode()
+        view.focus()
         return
       }
       if (viewMode === 'settings') {
@@ -1121,7 +1130,13 @@ async function boot() {
   w.__ifoloFocus = () => view?.focus()
   w.__ifoloNewNote = () => void newNote()
   w.__ifoloToggleList = () => toggleViewMode()
-  w.__ifoloCommandPalette = () => cmdPalette.toggle()
+  w.__ifoloCommandPalette = () => {
+    if (viewMode === 'list') {
+      noteList.toggleCommandMode()
+    } else {
+      editorSearch.toggleCommandMode()
+    }
+  }
   w.__ifoloSearch = () => {
     if (viewMode !== 'list') switchViewMode('list')
     noteList.setSearchVisible(true, undefined, true)

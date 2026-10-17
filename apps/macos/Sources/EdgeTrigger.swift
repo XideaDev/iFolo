@@ -15,16 +15,18 @@ final class EdgeTrigger {
     static let shared = EdgeTrigger()
 
     /// 触发区宽度（点）。3pt 是「能碰到但不误触」的平衡点。
-    var zoneWidth: CGFloat = 3
+    /// 触发区宽度（点）。6pt 确保高分辨率与高速划过时可靠捕获
+    var zoneWidth: CGFloat = 6
     /// 指针需要在触发区停留多久才展开面板
     var dwell: TimeInterval = 0.12
-    /// 只在主屏触发，还是所有屏
-    var allScreens = false
+    /// 默认支持在光标所在的任何屏幕边缘触发
+    var allScreens = true
 
     private var monitor: Any?
     private var dwellTimer: Timer?
     private var armed = true
     private var screenObserver: NSObjectProtocol?
+    private var pollTimer: Timer?
 
     private(set) var isPaused = false
 
@@ -50,9 +52,17 @@ final class EdgeTrigger {
         }
 
         // 全局监听不会收到发给本 App 的事件，所以面板内的移动天然被忽略
+        // 1. 全局鼠标移动监听
         monitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self] _ in
             self?.evaluate()
         }
+
+        // 2. 毫秒级轻量悬停轮询：解决无辅助功能权限或鼠标静止停留时无法收到 mouseMoved 事件的系统级死锁
+        let pTimer = Timer(timeInterval: 0.15, repeats: true) { [weak self] _ in
+            self?.evaluate()
+        }
+        RunLoop.main.add(pTimer, forMode: .common)
+        pollTimer = pTimer
 
         Log.write("边缘触发已启动 zoneWidth=\(zoneWidth) dwell=\(dwell) minZoneX=\(minZoneX)")
     }
@@ -65,10 +75,12 @@ final class EdgeTrigger {
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
             self.screenObserver = nil
+            self.screenObserver = nil
         }
+        pollTimer?.invalidate()
+        pollTimer = nil
         cancelDwell()
     }
-
     func pause() {
         isPaused = true
         cancelDwell()
@@ -100,14 +112,15 @@ final class EdgeTrigger {
         var lowestX: CGFloat = .greatestFiniteMagnitude
 
         for screen in targetScreens {
-            let visible = screen.visibleFrame
+            let frame = screen.frame
+            // 采用屏幕物理矩形 frame（撑满物理高宽），杜绝 visibleFrame 因 Dock 栏或菜单栏位置导致的边缘盲区
             let trigger = NSRect(
-                x: visible.maxX - zoneWidth,
-                y: visible.minY,
-                width: zoneWidth,
-                height: visible.height
+                x: frame.maxX - zoneWidth - 1,
+                y: frame.minY,
+                width: zoneWidth + 2,
+                height: frame.height
             )
-            zones.append(TriggerZone(screenFrame: screen.frame, triggerRect: trigger))
+            zones.append(TriggerZone(screenFrame: frame, triggerRect: trigger))
             if trigger.minX < lowestX {
                 lowestX = trigger.minX
             }
@@ -119,6 +132,13 @@ final class EdgeTrigger {
     }
 
     private func evaluate() {
+        // 0. 用户配置短路：若用户关闭了边缘贴靠触发（默认开启 true），直接跳过
+        let enabled = UserDefaults.standard.object(forKey: "ifolo.edgeHover") as? Bool ?? true
+        guard enabled else {
+            if dwellTimer != nil { cancelDwell() }
+            return
+        }
+
         // 1. 状态短路：如果已暂停或面板处于可见状态，直接跳过
         guard !isPaused, !PanelController.shared.isVisible else {
             if dwellTimer != nil { cancelDwell() }

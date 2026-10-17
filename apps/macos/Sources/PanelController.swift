@@ -183,7 +183,11 @@ final class PanelController: NSObject, WKUIDelegate {
         outsideMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] _ in
-            self?.hide()
+            // 判断是否启用失焦自动隐藏（默认 true，若用户关闭则不收起）
+            let autoHide = UserDefaults.standard.object(forKey: "ifolo.autoHide") as? Bool ?? true
+            if autoHide {
+                self?.hide()
+            }
         }
     }
 
@@ -231,6 +235,30 @@ final class PanelController: NSObject, WKUIDelegate {
 // WebKit 的失败全是静默的（白屏、无日志），所以每个状态都打点。
 // 另外顺带把 JS 侧的错误抛到原生日志里 —— file:// 下没法开 DevTools 调试。
 extension PanelController: WKNavigationDelegate {
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
+        }
+        // 允许加载本地 file:// 静态资源
+        if url.isFileURL {
+            decisionHandler(.allow)
+            return
+        }
+        // 拦截外部链接并在系统外部默认浏览器安全打开，杜绝篡改面板与消息通道暴露
+        if let scheme = url.scheme?.lowercased(), ["http", "https", "mailto"].contains(scheme) {
+            decisionHandler(.cancel)
+            NSWorkspace.shared.open(url)
+            Log.write("拦截外链并在外部浏览器安全打开：\(url.absoluteString)")
+            return
+        }
+        decisionHandler(.cancel)
+    }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         Log.write("Web 开始加载")

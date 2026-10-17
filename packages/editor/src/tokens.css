@@ -77,9 +77,9 @@
   --ink-900: #191C1F;
 
   /* ---------- 语义别名 ---------- */
-  --text-primary:   var(--ink-900);   /* 17.11:1 AAA */
-  --text-secondary: var(--ink-600);   /*  6.38:1 AA  */
-  --text-tertiary:  var(--ink-500);   /*  4.30:1 仅限非关键信息 */
+  --text-primary:   #22262E;   /* 柔和深墨，降低 17:1 刺眼极黑硬度，更加温润高级 */
+  --text-secondary: #5A6474;   /* 优雅中性次级灰，保持清晰同时层级柔和 */
+  --text-tertiary:  #8490A0;   /* 弱化辅助信息（时间、图标等） */
   --text-disabled:  var(--ink-300);
 
   --border-subtle: var(--ink-100);
@@ -132,32 +132,54 @@
 
   /* 面板背景不透明度：与模糊材质解耦，两者独立可调 */
   --panel-opacity: 1;
+  /* 卡片不透明度：独立调节控件，默认 90%（0.90），支持 40% ~ 100% 动态无级调节 */
+  --card-opacity: 0.90;
 
-  --panel-bg: rgba(255, 255, 255, var(--panel-opacity));
+  --panel-bg: rgba(250, 251, 253, var(--panel-opacity));
+  /* ---------- 交互微状态（解耦实心底色，适配任意半透明度） ---------- */
+  --hover-bg: rgba(0, 0, 0, 0.045);
+  --active-bg: rgba(0, 0, 0, 0.08);
 
-  /* 卡片流层级（半透防眩光衬底，兼顾壁纸透光与文字极度舒适对比度） */
-  --card-bg: rgba(255, 255, 255, 0.52);
-  --card-bg-hover: rgba(255, 255, 255, 0.78);
-  --card-bg-active: rgba(225, 238, 255, 0.88);
-  --card-border: 1px solid rgba(255, 255, 255, 0.75);
-  --card-border-active: 1px solid var(--blue-400);
-  --card-shadow: 0 1.5px 6px rgba(16, 24, 40, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  /* 卡片流层级（由 --card-opacity 独立无级调控，兼顾透亮与文字承托力） */
+  --card-bg: rgba(255, 255, 255, calc(0.40 + 0.60 * var(--card-opacity)));
+  --card-bg-hover: rgba(255, 255, 255, calc(0.55 + 0.45 * var(--card-opacity)));
+  --card-bg-active: var(--blue-50);
+  --card-bg-pinned: rgba(250, 252, 255, calc(0.50 + 0.50 * var(--card-opacity)));
+  --card-border-color: rgba(0, 0, 0, calc(0.03 + 0.04 * var(--card-opacity)));
+  --card-border-color-hover: rgba(0, 0, 0, calc(0.06 + 0.04 * var(--card-opacity)));
+  --card-border-color-pinned: var(--blue-200);
+  --card-border-color-active: var(--blue-200);
+  --card-border: 1px solid var(--card-border-color);
+  --card-border-pinned: 1px solid var(--card-border-color-pinned);
+  --card-border-active: 1px solid var(--card-border-color-active);
+  --card-shadow: 0 1px 3px rgba(16, 24, 40, 0.03), 0 1px 2px rgba(16, 24, 40, 0.015);
 
   /* 输入框与交互控件 */
-  --control-bg: rgba(255, 255, 255, 0.55);
-  --control-bg-hover: rgba(255, 255, 255, 0.80);
-  --control-bg-focus: rgba(255, 255, 255, 0.95);
-  --control-border: 1px solid rgba(0, 0, 0, 0.08);
-  --control-border-hover: 1px solid rgba(0, 0, 0, 0.16);
-
+  --control-bg: rgba(255, 255, 255, calc(0.40 + 0.58 * var(--card-opacity)));
+  --control-bg-hover: rgba(255, 255, 255, calc(0.55 + 0.45 * var(--card-opacity)));
+  --control-bg-focus: #FFFFFF;
+  --control-border-color: rgba(0, 0, 0, 0.07);
+  --control-border-color-hover: rgba(0, 0, 0, 0.13);
+  --control-border: 1px solid var(--control-border-color);
+  --control-border-hover: 1px solid var(--control-border-color-hover);
   /* 分割线与边界 */
   --bar-border: rgba(0, 0, 0, 0.06);
 
   /* 悬浮弹出层（命令面板、全局菜单） */
-  --popover-bg: rgba(255, 255, 255, 0.88);
+  --popover-bg: rgba(255, 255, 255, 0.96);
   --popover-backdrop: blur(28px) saturate(190%);
-  --popover-border: 1px solid rgba(255, 255, 255, 0.85);
-  /* ---------- 排版 ---------- */
+  --popover-border: 1px solid rgba(0, 0, 0, 0.08);
+
+  /* 搜索高亮配色 */
+  --search-match-bg: rgba(254, 240, 138, 0.75);
+  --search-match-border: rgba(234, 179, 8, 0.40);
+  --search-match-color: #22262E;
+  --search-active-bg: rgba(245, 158, 11, 0.90);
+  --search-active-color: #FFFFFF;
+  --search-active-border: transparent;
+
+  /* 待办打勾背景 */
+  --task-check-done-bg: var(--green-700);
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
              "Hiragino Sans GB", system-ui, sans-serif;
   --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
@@ -214,10 +236,10 @@
    （蓝 7.14 / 绿 9.31 / 橙 9.35），所以直接用 500 标准色。
    ========================================================================= */
 [data-theme="dark"] {
-  --text-primary:   #E9EDF3;
-  --text-secondary: #A8B2C0;
-  --text-tertiary:  #7E8899;
-  --text-disabled:  #4A5361;
+  --text-primary:   #DFE4EC;   /* 柔润象牙冷白，消除刺眼白冷光眩光 */
+  --text-secondary: #9AA6B8;   /* 细腻次级灰，温和清晰 */
+  --text-tertiary:  #6E7A8C;   /* 柔和弱化文本 */
+  --text-disabled:  #444E5E;
 
   --border-subtle: #232A38;
   --border:        #2A2F37;
@@ -286,41 +308,58 @@
   --surface-raised: #242931;
   --surface-sunken: #181C22;
 
-  --panel-bg: rgba(29, 33, 39, var(--panel-opacity));
+  --panel-bg: rgba(24, 27, 33, var(--panel-opacity));
 
-  /* 卡片流层级（深色通透防眩光衬底） */
-  --card-bg: rgba(255, 255, 255, 0.055);
-  --card-bg-hover: rgba(255, 255, 255, 0.10);
-  --card-bg-active: rgba(59, 130, 246, 0.22);
-  --card-border: 1px solid rgba(255, 255, 255, 0.09);
-  --card-border-active: 1px solid rgba(96, 165, 250, 0.50);
-  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  /* ---------- 交互微状态 (深色) ---------- */
+  --hover-bg: rgba(255, 255, 255, 0.06);
+  --active-bg: rgba(255, 255, 255, 0.10);
 
+  /* 卡片流层级（深色模式：中性温润石墨色系，由 --card-opacity 独立调控） */
+  --card-bg: rgba(33, 37, 45, calc(0.40 + 0.60 * var(--card-opacity)));
+  --card-bg-hover: rgba(41, 46, 56, calc(0.55 + 0.45 * var(--card-opacity)));
+  --card-bg-active: rgba(30, 53, 80, calc(0.65 + 0.35 * var(--card-opacity)));
+  --card-bg-pinned: rgba(35, 41, 52, calc(0.50 + 0.50 * var(--card-opacity)));
+  --card-border-color: rgba(255, 255, 255, calc(0.05 + 0.05 * var(--card-opacity)));
+  --card-border-color-hover: rgba(255, 255, 255, calc(0.09 + 0.05 * var(--card-opacity)));
+  --card-border-color-pinned: var(--blue-200);
+  --card-border-color-active: rgba(96, 165, 250, 0.45);
+  --card-border: 1px solid var(--card-border-color);
+  --card-border-pinned: 1px solid var(--card-border-color-pinned);
+  --card-border-active: 1px solid var(--card-border-color-active);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.14);
   /* 输入框与交互控件 */
-  --control-bg: rgba(255, 255, 255, 0.07);
-  --control-bg-hover: rgba(255, 255, 255, 0.12);
-  --control-bg-focus: rgba(25, 30, 40, 0.95);
-  --control-border: 1px solid rgba(255, 255, 255, 0.12);
-  --control-border-hover: 1px solid rgba(255, 255, 255, 0.22);
-
+  --control-bg: rgba(255, 255, 255, calc(0.04 + 0.04 * var(--card-opacity)));
+  --control-bg-hover: rgba(255, 255, 255, calc(0.08 + 0.04 * var(--card-opacity)));
+  --control-bg-focus: rgba(36, 42, 52, 0.92);
+  --control-border-color: rgba(255, 255, 255, 0.09);
+  --control-border-color-hover: rgba(255, 255, 255, 0.16);
+  --control-border: 1px solid var(--control-border-color);
+  --control-border-hover: 1px solid var(--control-border-color-hover);
   /* 分割线与边界 */
   --bar-border: rgba(255, 255, 255, 0.08);
 
   /* 悬浮弹出层 */
-  --popover-bg: rgba(29, 33, 39, 0.90);
+  --popover-bg: rgba(26, 30, 37, 0.95);
   --popover-backdrop: blur(32px) saturate(180%);
-  --popover-border: 1px solid rgba(255, 255, 255, 0.14);
+  --popover-border: 1px solid rgba(255, 255, 255, 0.12);
+
+  /* 搜索高亮配色 (深色) */
+  --search-match-bg: rgba(202, 138, 4, 0.35);
+  --search-match-border: rgba(234, 179, 8, 0.45);
+  --search-match-color: #FEF08A;
+  --search-active-bg: rgba(217, 119, 6, 0.85);
+  --search-active-color: #FFFFFF;
+  --search-active-border: transparent;
+
+  /* 待办打勾背景 (深色) */
+  --task-check-done-bg: #22C55E;
+
   --syn-kw:    #FFBA52;
   --syn-fn:    #8FBFFF;
   --syn-str:   #A4E08A;
   --syn-num:   #FFCE85;
   --syn-com:   #7E8899;
   --syn-punct: #E9EDF3;
-  --syn-str:   #A4E08A;  /* 品牌绿色阶 */
-  --syn-num:   #FFCE85;  /* 品牌橙色阶 */
-  --syn-com:   #7E8899;  /* 中性墨色阶 */
-  --syn-punct: #E9EDF3;  /* 中性高亮 */
-
   --shadow-popover: 0 12px 38px rgba(0, 0, 0, .55), 0 1px 3px rgba(0, 0, 0, .4);
   --shadow-raised:  0 24px 46px -28px rgba(0, 0, 0, .7);
   --shadow-panel:   -18px 0 60px rgba(0, 0, 0, .5);

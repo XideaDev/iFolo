@@ -73,6 +73,8 @@ export class SettingsView {
   private widthValEl!: HTMLElement
   private opacitySlider!: HTMLInputElement
   private opacityValEl!: HTMLElement
+  private cardOpacitySlider!: HTMLInputElement
+  private cardOpacityValEl!: HTMLElement
 
   constructor(private opts: SettingsViewOptions) {
     this.dom = el('div', { class: 'settings-view' })
@@ -105,7 +107,7 @@ export class SettingsView {
         el('div', {}, ['全局呼出快捷键']),
         el('div', { class: 'settings-row__desc' }, ['在任何屏幕随时呼出/收起']),
       ]),
-      el('span', { class: 'keycap' }, ['⌥Space']),
+      el('span', { class: 'keycap' }, ['⌥⌘N']),
     ])
 
     // 边缘贴靠触发
@@ -115,6 +117,7 @@ export class SettingsView {
       localStorage.getItem('ifolo:edge_hover') !== 'false',
       (checked) => {
         localStorage.setItem('ifolo:edge_hover', String(checked))
+        void this.opts.bridge.setEdgeHover(checked)
       },
     )
     this.edgeHoverToggle = edgeHoverRow.input
@@ -126,6 +129,7 @@ export class SettingsView {
       localStorage.getItem('ifolo:auto_hide') === 'true',
       (checked) => {
         localStorage.setItem('ifolo:auto_hide', String(checked))
+        void this.opts.bridge.setAutoHide(checked)
       },
     )
     this.autoHideToggle = autoHideRow.input
@@ -335,7 +339,36 @@ export class SettingsView {
       opacityBox,
     ])
 
-    groupAppearance.append(themeRow, iconRow, widthRow, opacityRow)
+    // 卡片透明度（动态调节卡片与设置块的不透明度，范围 40% ~ 100%，消除桌面透字杂乱）
+    const curCardOpacityStr = getComputedStyle(document.documentElement).getPropertyValue('--card-opacity').trim()
+    const curCardOpacity = curCardOpacityStr ? Math.round(parseFloat(curCardOpacityStr) * 100) : 90
+    this.cardOpacityValEl = el('span', { class: 'slider-val' }, [`${curCardOpacity}%`])
+    this.cardOpacitySlider = el('input', {
+      type: 'range',
+      min: '40',
+      max: '100',
+      step: '1',
+      value: String(curCardOpacity),
+    }) as HTMLInputElement
+
+    this.cardOpacitySlider.addEventListener('input', () => {
+      const val = parseInt(this.cardOpacitySlider.value)
+      this.cardOpacityValEl.textContent = `${val}%`
+      const normalized = val / 100
+      document.documentElement.style.setProperty('--card-opacity', String(normalized))
+      void this.opts.bridge.setCardOpacity(normalized)
+    })
+
+    const cardOpacityBox = el('div', { class: 'slider-box' }, [this.cardOpacitySlider, this.cardOpacityValEl])
+    const cardOpacityRow = el('div', { class: 'settings-row' }, [
+      el('div', {}, [
+        el('div', {}, ['卡片不透明度']),
+        el('div', { class: 'settings-row__desc' }, ['增强卡片与文字底色承托力，防止壁纸透字干扰（推荐 85%~95%）']),
+      ]),
+      cardOpacityBox,
+    ])
+
+    groupAppearance.append(themeRow, iconRow, widthRow, opacityRow, cardOpacityRow)
 
     // 3. 数据与存储
     const secData = el('div', { class: 'section-label' }, ['数据与存储'])
@@ -444,8 +477,18 @@ export class SettingsView {
 
     // 4. 关于信息
     const footer = el('div', {
-      style: 'text-align: center; font-size: 11px; color: var(--muted); margin: 20px 0 10px; flex-shrink: 0;',
-    }, ['iFolo v0.1.0 · 极简边缘笔记 · 为 macOS 设计'])
+      style: 'text-align: center; font-size: 11px; color: var(--muted); margin: 24px 0 12px; flex-shrink: 0; line-height: 1.7;',
+    }, [
+      el('div', { style: 'font-weight: 600; color: var(--text-secondary);' }, ['iFolo Note 心流笔记 v0.1.0']),
+      el('div', { style: 'font-size: 10.5px; margin-top: 2px;' }, [
+        el('span', {}, ['轻盈边缘触碰唤起 · 极速捕捉瞬间灵感 · 官网：']),
+        el('a', {
+          href: 'https://www.ifolo.cn',
+          target: '_blank',
+          style: 'color: var(--accent); text-decoration: none; font-weight: 500;',
+        }, ['www.ifolo.cn']),
+      ]),
+    ])
 
     this.dom.append(
       secGeneral,
@@ -510,6 +553,14 @@ export class SettingsView {
     if (this.opacitySlider) {
       this.opacitySlider.value = String(curOpacity)
       this.opacityValEl.textContent = `${curOpacity}%`
+    }
+
+    // 同步卡片透明度
+    const curCardOpacityStr = getComputedStyle(document.documentElement).getPropertyValue('--card-opacity').trim()
+    const curCardOpacity = curCardOpacityStr ? Math.round(parseFloat(curCardOpacityStr) * 100) : 90
+    if (this.cardOpacitySlider) {
+      this.cardOpacitySlider.value = String(curCardOpacity)
+      this.cardOpacityValEl.textContent = `${curCardOpacity}%`
     }
 
     // 同步开关

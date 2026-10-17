@@ -224,10 +224,14 @@ export class EditorSearch {
         if (cmd.keyHint) {
           row.append(el('span', { class: 'kk' }, [cmd.keyHint]))
         }
-        row.addEventListener('click', (ev) => {
+        row.addEventListener('mousedown', (ev) => {
+          ev.preventDefault()
           ev.stopPropagation()
           this.activeCmdIndex = idx
           this.executeActiveCommand()
+        })
+        row.addEventListener('click', (ev) => {
+          ev.stopPropagation()
         })
         this.cmdDropdown.append(row)
       })
@@ -355,6 +359,12 @@ export class EditorSearch {
         this.opts.view.focus()
       }
     })
+
+    window.addEventListener('mousedown', (e) => {
+      if (this.cmdDropdown.style.display !== 'none' && !this.dom.contains(e.target as Node)) {
+        this.hideCommands()
+      }
+    })
   }
 
   show(initialQuery?: string, shouldFocus = false) {
@@ -409,6 +419,30 @@ export class EditorSearch {
 
   isVisible(): boolean {
     return this.visible && this.dom.style.display !== 'none'
+  }
+  isCommandMode(): boolean {
+    return this.isVisible() && (this.cmdDropdown.style.display !== 'none' || this.searchInput.value.startsWith('/'))
+  }
+
+  openCommandMode() {
+    this.show('/', true)
+    this.searchInput.value = '/'
+    this.renderCommands('')
+    this.searchInput.focus()
+  }
+
+  closeCommandMode() {
+    this.hideCommands()
+    this.searchInput.value = ''
+    this.performSearch('')
+  }
+
+  toggleCommandMode() {
+    if (this.isCommandMode()) {
+      this.closeCommandMode()
+    } else {
+      this.openCommandMode()
+    }
   }
 
   performSearch(query: string) {

@@ -68,7 +68,7 @@ final class Store {
             let id = file.deletingPathExtension().lastPathComponent
             let content = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
             let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-            let noteFolder = noteFoldersMap[id]
+            let noteFolder = folderData.noteFolders[id]
             let isPinned = pinnedMap[id] != nil
             let pinnedAt = pinnedMap[id]
             result.append(NoteMeta(
@@ -225,9 +225,7 @@ final class Store {
         var data = loadFolderData()
         data.folders.removeAll(where: { $0.id == id })
         // 清理属于该分类的笔记关联
-        for (noteId, fId) in data.noteFolders where fId == id {
-            data.noteFolders.removeValue(forKey: noteId)
-        }
+        data.noteFolders = data.noteFolders.filter { $0.value != id }
         saveFolderData(data)
         Log.write("删除文件夹分类: \(id)")
     }

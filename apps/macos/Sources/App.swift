@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = StatusItem()
 
         let trigger = EdgeTrigger.shared
-        trigger.zoneWidth = 3
+        trigger.zoneWidth = 6
         trigger.dwell = 0.12
         trigger.start()
         edgeTrigger = trigger

@@ -56,6 +56,8 @@ export interface Bridge {
   search(query: string): Promise<SearchResult[]>
   /** 面板不透明度（0.3–1.0），由外壳持久化 */
   setOpacity(value: number): Promise<void>
+  /** 卡片不透明度（0.4–1.0），独立持久化 */
+  setCardOpacity(value: number): Promise<void>
   /** 面板宽度（320–屏幕一半），由外壳持久化 */
   setWidth(width: number): Promise<void>
   /** 菜单栏图标（default | notebook | pen | document） */
@@ -70,6 +72,8 @@ export interface Bridge {
   saveFoldersOrder(folders: FolderItem[]): Promise<void>
   setNoteFolder(noteId: string, folderId: string | null): Promise<void>
   setNotePinned(noteId: string, pinned: boolean): Promise<void>
+  setEdgeHover(enabled: boolean): Promise<void>
+  setAutoHide(enabled: boolean): Promise<void>
   readonly isNative: boolean
 }
 
@@ -130,6 +134,7 @@ function createNativeBridge(): Bridge | null {
     rename: (id, title) => call<void>('rename', { id, title }),
     search: (query) => call<SearchResult[]>('search', { query }),
     setOpacity: (value) => call<void>('setOpacity', { value }),
+    setCardOpacity: (value) => call<void>('setCardOpacity', { value }),
     setWidth: (width) => call<void>('setWidth', { width }),
     setStatusBarIcon: (name) => call<void>('setStatusBarIcon', { name }),
     openFinder: () => call<void>('openFinder'),
@@ -141,6 +146,8 @@ function createNativeBridge(): Bridge | null {
     saveFoldersOrder: (folders) => call<void>('saveFoldersOrder', { folders }),
     setNoteFolder: (noteId, folderId) => call<void>('setNoteFolder', { noteId, folderId }),
     setNotePinned: (noteId, pinned) => call<void>('setNotePinned', { noteId, pinned }),
+    setEdgeHover: (enabled) => call<void>('setEdgeHover', { enabled }),
+    setAutoHide: (enabled) => call<void>('setAutoHide', { enabled }),
   }
 }
 
@@ -228,9 +235,10 @@ function createBrowserBridge(): Bridge {
       })
       const panelWidth = Number(localStorage.getItem(LS_WIDTH)) || 432
       const panelOpacity = Number(localStorage.getItem('ifolo.opacity')) || 0.82
+      const cardOpacity = Number(localStorage.getItem('ifolo.card_opacity')) || 0.90
       const statusBarIcon = getStoredStatusBarIcon()
       const folders = await this.listFolders()
-      return { notes, folders, activeId, content: store[activeId] ?? '', panelWidth, panelOpacity, statusBarIcon }
+      return { notes, folders, activeId, content: store[activeId] ?? '', panelWidth, panelOpacity, cardOpacity, statusBarIcon }
     },
     async list() {
       const store = readStore()
@@ -341,6 +349,10 @@ function createBrowserBridge(): Bridge {
       localStorage.setItem('ifolo.opacity', String(value))
       document.documentElement.style.setProperty('--panel-opacity', String(value))
     },
+    async setCardOpacity(value) {
+      localStorage.setItem('ifolo.card_opacity', String(value))
+      document.documentElement.style.setProperty('--card-opacity', String(value))
+    },
     async setWidth(value) {
       localStorage.setItem(LS_WIDTH, String(value))
       document.documentElement.style.setProperty('--panel-width', `${value}px`)
@@ -427,6 +439,12 @@ function createBrowserBridge(): Bridge {
         }
         localStorage.setItem(LS_PINNED, JSON.stringify(map))
       } catch {}
+    },
+    async setEdgeHover(enabled) {
+      localStorage.setItem('ifolo:edge_hover', String(enabled))
+    },
+    async setAutoHide(enabled) {
+      localStorage.setItem('ifolo:auto_hide', String(enabled))
     },
   }
 }

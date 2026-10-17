@@ -480,6 +480,33 @@ export class NoteList {
     return this.showSearch
   }
 
+  isCommandMode(): boolean {
+    return this.isSearchVisible() && this.searchInput.value.startsWith('/')
+  }
+
+  openCommandMode() {
+    this.setSearchVisible(true)
+    this.searchInput.value = '/'
+    this.searchQuery = '/'
+    this.activeCmdIndex = 0
+    this.render()
+    this.searchInput.focus()
+  }
+
+  closeCommandMode() {
+    this.searchInput.value = ''
+    this.searchQuery = ''
+    this.render()
+  }
+
+  toggleCommandMode() {
+    if (this.isCommandMode()) {
+      this.closeCommandMode()
+    } else {
+      this.openCommandMode()
+    }
+  }
+
   focusSearch() {
     this.searchInput.focus()
   }
@@ -525,10 +552,21 @@ export class NoteList {
   }
 
   private highlight(text: string, query: string): string {
-    if (!query) return escapeHtml(text)
-    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const regex = new RegExp(`(${escapedQuery})`, 'gi')
-    return escapeHtml(text).replace(regex, '<mark class="search-highlight">$1</mark>')
+    const cleanQ = query.trim()
+    if (!cleanQ) return escapeHtml(text)
+    const lowerText = text.toLowerCase()
+    const lowerQuery = cleanQ.toLowerCase()
+    let result = ''
+    let lastIndex = 0
+    let index = lowerText.indexOf(lowerQuery, lastIndex)
+    while (index !== -1) {
+      result += escapeHtml(text.slice(lastIndex, index))
+      result += `<mark class="search-highlight">${escapeHtml(text.slice(index, index + cleanQ.length))}</mark>`
+      lastIndex = index + cleanQ.length
+      index = lowerText.indexOf(lowerQuery, lastIndex)
+    }
+    result += escapeHtml(text.slice(lastIndex))
+    return result
   }
 
   private moveCommandActive(delta: number) {
@@ -591,6 +629,11 @@ export class NoteList {
         if (cmd.keyHint) {
           row.append(el('span', { class: 'kk' }, [cmd.keyHint]))
         }
+        row.addEventListener('mousedown', (ev) => {
+          ev.preventDefault()
+          this.activeCmdIndex = idx
+          this.executeActiveCommand()
+        })
         row.addEventListener('click', () => {
           this.activeCmdIndex = idx
           this.executeActiveCommand()
@@ -759,6 +802,9 @@ export class NoteList {
         }
       })
 
+      pinBtn.setAttribute('draggable', 'false')
+      delBtn.setAttribute('draggable', 'false')
+      acts.addEventListener('dragstart', (e) => e.stopPropagation())
       acts.append(pinBtn, delBtn)
       topRow.append(acts)
 

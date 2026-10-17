@@ -9,6 +9,7 @@
     "build": "pnpm --filter @ifolo/editor build",
     "test": "pnpm --filter @ifolo/editor test",
     "build:macos": "pnpm build && cd apps/macos && ./build.sh",
+    "build:dmg": "pnpm build && cd apps/macos && ./build-dmg.sh",
     "run:macos": "pnpm build:macos && open apps/macos/build/iFolo.app"
   },
   "engines": {

@@ -259,22 +259,6 @@ final class StatusItem: NSObject {
     }
 
     @objc private func showAbout() {
-        NSApp.activate(ignoringOtherApps: true)
-        let alert = NSAlert()
-        alert.messageText = "iFolo"
-        if let icon = NSApp.applicationIconImage {
-            alert.icon = icon
-        }
-        alert.informativeText = """
-        屏幕边缘笔记 · 跨 Mac / Windows
-
-        把指针移到屏幕右边缘，或按 ⌥⌘N 呼出面板。
-
-        笔记以 Markdown 存在：
-        ~/Library/Application Support/iFolo/notes/
-        """
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "好")
-        alert.runModal()
+        AboutWindowController.shared.show()
     }
 }
