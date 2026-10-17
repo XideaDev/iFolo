@@ -1576,9 +1576,23 @@ body.is-resizing #app {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   background: transparent;
-  padding: 14px 14px 28px;
+  padding: 14px 14px 56px;
   user-select: none;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(140, 150, 170, 0.28) transparent !important;
+}
+.settings-view::-webkit-scrollbar {
+  display: block !important;
+  width: 5px !important;
+}
+.settings-view::-webkit-scrollbar-thumb {
+  background: rgba(140, 150, 170, 0.25);
+  border-radius: 4px;
+}
+.settings-view::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 150, 170, 0.45);
 }
 
 .section-label {
@@ -1608,22 +1622,32 @@ body.is-resizing #app {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 10px 14px;
   font-size: 12.5px;
   color: var(--text-primary);
   min-height: 42px;
   border-bottom: 1px solid var(--bar-border);
   transition: background var(--dur-hover) var(--ease-out);
+  box-sizing: border-box;
+  width: 100%;
 }
 .settings-row:hover {
   background: var(--card-bg-hover);
 }
 .settings-row:last-child { border-bottom: none; }
 
+.settings-row > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .settings-row__desc {
   font-size: 11px;
   color: var(--text-tertiary);
   margin-top: 2px;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 /* 切换开关 Switch */
@@ -1663,7 +1687,7 @@ body.is-resizing #app {
   display: flex;
   background: var(--control-bg);
   border: var(--control-border);
-  padding: 2.5px;
+  padding: 2px;
   border-radius: 8px;
   gap: 2px;
   flex: 0 0 auto;
@@ -1671,13 +1695,14 @@ body.is-resizing #app {
 .segmented__item {
   border: none;
   background: transparent;
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-secondary);
-  padding: 3.5px 9px;
+  padding: 3px 7px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 .segmented__item:hover {
   color: var(--text-primary);
@@ -1693,7 +1718,7 @@ body.is-resizing #app {
 .icon-picker {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex: 0 0 auto;
 }
 
@@ -1702,9 +1727,9 @@ body.is-resizing #app {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  width: 52px;
-  padding: 5px 3px 4px;
+  gap: 2px;
+  width: 44px;
+  padding: 4px 2px;
   border: var(--control-border);
   border-radius: 7px;
   background: var(--control-bg);
@@ -1728,19 +1753,21 @@ body.is-resizing #app {
 }
 
 .icon-picker__preview {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .icon-picker__preview svg {
+  width: 14px;
+  height: 14px;
   display: block;
 }
 
 .icon-picker__label {
-  font-size: 9.5px;
+  font-size: 9px;
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -1761,12 +1788,14 @@ body.is-resizing #app {
 .slider-box {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 170px;
+  gap: 6px;
+  width: 146px;
+  max-width: 46%;
   flex: 0 0 auto;
 }
 .slider-box input[type="range"] {
   flex: 1;
+  min-width: 48px;
   height: 4px;
   accent-color: var(--accent);
   cursor: pointer;
@@ -1775,9 +1804,36 @@ body.is-resizing #app {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted);
-  width: 46px;
+  width: 44px;
   text-align: right;
   flex: 0 0 auto;
+}
+
+@media (max-width: 400px) {
+  .settings-view {
+    padding: 10px 10px 56px;
+  }
+  .settings-row {
+    padding: 9px 10px;
+    gap: 8px;
+  }
+  .slider-box {
+    width: 120px;
+  }
+  .icon-picker {
+    gap: 3px;
+  }
+  .icon-picker__item {
+    width: 38px;
+    padding: 3px 1px;
+  }
+  .icon-picker__label {
+    display: none;
+  }
+  .segmented__item {
+    padding: 3px 5px;
+    font-size: 10.5px;
+  }
 }
 
 /* 按钮小控件 */

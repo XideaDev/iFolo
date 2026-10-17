@@ -151,7 +151,7 @@ export class SettingsView {
     const edgeHoverDelayRow = el('div', { class: 'settings-row' }, [
       el('div', {}, [
         el('div', {}, ['悬停触发延迟']),
-        el('div', { class: 'settings-row__desc' }, ['指针停留在屏幕边缘触发侧边栏的等待时长 (50ms ~ 1000ms)']),
+        el('div', { class: 'settings-row__desc' }, ['光标停留于屏幕边缘触发展开的时长']),
       ]),
       edgeDelayBox,
     ])
@@ -404,7 +404,7 @@ export class SettingsView {
     const cardOpacityRow = el('div', { class: 'settings-row' }, [
       el('div', {}, [
         el('div', {}, ['卡片不透明度']),
-        el('div', { class: 'settings-row__desc' }, ['增强卡片与文字底色承托力，防止壁纸透字干扰（推荐 85%~95%）']),
+        el('div', { class: 'settings-row__desc' }, ['增强底色承托力，防止壁纸透字干扰（推荐 85%~95%）']),
       ]),
       cardOpacityBox,
     ])
@@ -435,7 +435,7 @@ export class SettingsView {
     const finderRow = el('div', { class: 'settings-row' }, [
       el('div', {}, [
         el('div', {}, ['本地存储位置']),
-        el('div', { class: 'settings-row__desc', style: 'font-family: var(--font-mono); font-size: 10px;' }, [
+        el('div', { class: 'settings-row__desc', style: 'font-family: var(--font-mono); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px;', title: '~/Library/Application Support/iFolo/notes' }, [
           '~/Library/Application Support/iFolo/notes',
         ]),
       ]),
@@ -517,8 +517,8 @@ export class SettingsView {
     groupData.append(finderRow, exportRow, trashRow)
 
     // 4. AI 与开发者生态 (Model Context Protocol)
-    const secMCP = el('div', { class: 'settings-sec' }, ['AI 与开发生态 (MCP)'])
-    const groupMCP = el('div', { class: 'settings-card' })
+    const secMCP = el('div', { class: 'section-label settings-sec' }, ['AI 与开发生态 (MCP)'])
+    const groupMCP = el('div', { class: 'settings-group settings-card' })
 
     const copyMCPConfigBtn = el('button', {
       type: 'button',
@@ -547,7 +547,7 @@ export class SettingsView {
     const mcpRow = el('div', { class: 'settings-row' }, [
       el('div', {}, [
         el('div', {}, ['Model Context Protocol 本地服务']),
-        el('div', { class: 'settings-row__desc' }, ['允许 Claude Desktop / Cursor 外部大模型直连读写 iFolo 本地笔记']),
+        el('div', { class: 'settings-row__desc' }, ['允许 Claude Desktop / Cursor 读写本地笔记']),
       ]),
       copyMCPConfigBtn,
     ])
