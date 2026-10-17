@@ -6,6 +6,7 @@ struct NoteMeta: Codable {
     var title: String
     var updatedAt: Double
     var snippet: String
+    var tags: [String]?
     var folderId: String?
     var hasTodo: Bool?
     var isPinned: Bool?
@@ -71,11 +72,13 @@ final class Store {
             let noteFolder = folderData.noteFolders[id]
             let isPinned = pinnedMap[id] != nil
             let pinnedAt = pinnedMap[id]
+            let tags = Self.extractTags(from: content)
             result.append(NoteMeta(
                 id: id,
                 title: title(from: content),
                 updatedAt: date?.timeIntervalSince1970 ?? 0,
                 snippet: extractSnippet(from: content),
+                tags: tags,
                 folderId: noteFolder,
                 hasTodo: Self.detectHasTodo(content: content),
                 isPinned: isPinned,
@@ -113,7 +116,7 @@ final class Store {
     @discardableResult
     func create() -> NoteMeta {
         let id = UUID().uuidString.lowercased()
-        let meta = NoteMeta(id: id, title: "无标题", updatedAt: Date().timeIntervalSince1970, snippet: "", folderId: nil, hasTodo: false, isPinned: false, pinnedAt: nil)
+        let meta = NoteMeta(id: id, title: "无标题", updatedAt: Date().timeIntervalSince1970, snippet: "", tags: [], folderId: nil, hasTodo: false, isPinned: false, pinnedAt: nil)
         write(id: id, markdown: "")
         setActive(id)
         Log.write("新建笔记 \(id)")
@@ -321,7 +324,7 @@ final class Store {
         // 6. 移除剩余的孤立语法符号
         res = res.replacingOccurrences(of: "(?:\\*\\*|__|~~|`)+", with: "", options: .regularExpression)
         // 7. 过滤标签（保留 C#、#123）
-        res = res.replacingOccurrences(of: "(?:^|\\s)#[\\w\\u4e00-\\u9fa5]+", with: "", options: .regularExpression)
+        res = res.replacingOccurrences(of: "#[^#\\s,]+#?", with: "", options: .regularExpression)
         res = res.replacingOccurrences(of: "#+", with: "", options: .regularExpression)
         return res.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -400,5 +403,46 @@ final class Store {
             }
         }
         return ""
+    }
+
+    // MARK: - 标签提取与自动打标
+
+    /// 检测笔记内容是否与 MCP 语义相关（大小写无关）
+    static func isMcpRelated(content: String) -> Bool {
+        if content.isEmpty { return false }
+        let pattern = "(?i)(?:^|[^a-zA-Z0-9])mcp(?:[^a-zA-Z0-9]|$)|mcpserver|model\\s+context\\s+protocol"
+        return content.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    /// 从 Markdown 全文提取标签：
+    /// 1. 优先提取 #标签#（双井号）或 #标签（单井号前缀，排除 Markdown 标题与 C# 等）；
+    /// 2. 自动打标：若笔记内容与 MCP 相关，自动添加 "mcp" 标签。
+    static func extractTags(from text: String) -> [String] {
+        if text.isEmpty { return [] }
+        var tags: [String] = []
+        let pattern = "#([^#\\s,]{1,16})#|#([^#\\s,]{1,16})(?=[\\s，。！？、（）()\\[\\]{}'\"]|$)"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            let nsText = text as NSString
+            let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
+            for m in matches {
+                let matchedStr = nsText.substring(with: m.range)
+                let cleaned = matchedStr.trimmingCharacters(in: CharacterSet(charactersIn: "# \t\r\n"))
+                if !cleaned.isEmpty && cleaned.count <= 16 {
+                    tags.append(cleaned)
+                }
+            }
+        }
+        if isMcpRelated(content: text) {
+            if !tags.contains(where: { $0.lowercased() == "mcp" }) {
+                tags.append("mcp")
+            }
+        }
+        var unique: [String] = []
+        for t in tags {
+            if !unique.contains(t) {
+                unique.append(t)
+            }
+        }
+        return Array(unique.prefix(6))
     }
 }

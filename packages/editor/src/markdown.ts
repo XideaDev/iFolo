@@ -151,6 +151,8 @@ const md = new MarkdownIt('default', {
   breaks: false,
 })
 
+// 禁用当前 Schema 未注册的块级扩展规则，避免生成未声明的 token
+md.disable(['table'])
 const parser = new MarkdownParser(schema, md, {
   blockquote: { block: 'blockquote' },
   paragraph: { block: 'paragraph' },
@@ -233,6 +235,15 @@ type ParseState = {
   if (spec.open) state.openMark(type.create(spec.attrs ?? {}))
   else state.closeMark(type)
 }
+
+// 安全兜底未知 token，遇到未声明的 token 时安全跳过，绝不抛出异常导致整个 App 白屏崩溃
+const rawHandlers = (parser as unknown as { tokenHandlers: Record<string, unknown> }).tokenHandlers
+;(parser as unknown as { tokenHandlers: Record<string, unknown> }).tokenHandlers = new Proxy(rawHandlers, {
+  get(target, prop: string) {
+    if (prop in target) return target[prop]
+    return () => {}
+  },
+})
 
 /* ---------- 任务项后处理 ----------
    markdown-it 不认识 `- [ ] foo` 这种任务语法，会把它解析成普通列表项，
@@ -402,7 +413,7 @@ export function stripMarkdown(text: string): string {
   // 6. 移除剩余的孤立语法符号
   cleaned = cleaned.replace(/(?:\*\*|__|~~|`)+/g, '')
   // 7. 过滤标签（保留 C#、#123）
-  cleaned = cleaned.replace(/(?:^|\s)#[^ \t\n\r#,]+/g, '')
+  cleaned = cleaned.replace(/(?:^|\s)#[^ \t\n\r#,]+#?/g, '')
   cleaned = cleaned.replace(/#+/g, '')
   return cleaned.trim()
 }

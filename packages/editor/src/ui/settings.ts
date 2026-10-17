@@ -21,6 +21,8 @@ import {
   setStoredStatusBarIcon,
   isCardKindIconEnabled,
   setCardKindIconEnabled,
+  getStoredEdgeHoverDelay,
+  setStoredEdgeHoverDelay,
 } from '../storage'
 import { el } from './dom'
 
@@ -75,6 +77,9 @@ export class SettingsView {
   private opacityValEl!: HTMLElement
   private cardOpacitySlider!: HTMLInputElement
   private cardOpacityValEl!: HTMLElement
+  private edgeHoverDelaySlider!: HTMLInputElement
+  private edgeHoverDelayValEl!: HTMLElement
+  private edgeHoverDelayRow!: HTMLElement
 
   constructor(private opts: SettingsViewOptions) {
     this.dom = el('div', { class: 'settings-view' })
@@ -117,10 +122,46 @@ export class SettingsView {
       localStorage.getItem('ifolo:edge_hover') !== 'false',
       (checked) => {
         localStorage.setItem('ifolo:edge_hover', String(checked))
+        updateDelayRowState(checked)
         void this.opts.bridge.setEdgeHover(checked)
       },
     )
     this.edgeHoverToggle = edgeHoverRow.input
+
+    // 边缘悬停触发延迟（50ms ~ 1000ms，默认 150ms）
+    const curDelayMs = Math.round(getStoredEdgeHoverDelay() * 1000)
+    this.edgeHoverDelayValEl = el('span', { class: 'slider-val' }, [`${curDelayMs}ms`])
+    this.edgeHoverDelaySlider = el('input', {
+      type: 'range',
+      min: '50',
+      max: '1000',
+      step: '25',
+      value: String(curDelayMs),
+    }) as HTMLInputElement
+
+    this.edgeHoverDelaySlider.addEventListener('input', () => {
+      const valMs = parseInt(this.edgeHoverDelaySlider.value)
+      this.edgeHoverDelayValEl.textContent = `${valMs}ms`
+      const delaySec = valMs / 1000
+      setStoredEdgeHoverDelay(delaySec)
+      void this.opts.bridge.setEdgeHoverDelay(delaySec)
+    })
+
+    const edgeDelayBox = el('div', { class: 'slider-box' }, [this.edgeHoverDelaySlider, this.edgeHoverDelayValEl])
+    const edgeHoverDelayRow = el('div', { class: 'settings-row' }, [
+      el('div', {}, [
+        el('div', {}, ['悬停触发延迟']),
+        el('div', { class: 'settings-row__desc' }, ['指针停留在屏幕边缘触发侧边栏的等待时长 (50ms ~ 1000ms)']),
+      ]),
+      edgeDelayBox,
+    ])
+    this.edgeHoverDelayRow = edgeHoverDelayRow
+
+    const updateDelayRowState = (enabled: boolean) => {
+      edgeHoverDelayRow.style.opacity = enabled ? '1' : '0.45'
+      edgeHoverDelayRow.style.pointerEvents = enabled ? 'auto' : 'none'
+    }
+    updateDelayRowState(localStorage.getItem('ifolo:edge_hover') !== 'false')
 
     // 失焦自动隐藏
     const autoHideRow = this.createToggleRow(
@@ -134,7 +175,7 @@ export class SettingsView {
     )
     this.autoHideToggle = autoHideRow.input
 
-    groupGeneral.append(autoStartRow.row, shortcutRow, edgeHoverRow.row, autoHideRow.row)
+    groupGeneral.append(autoStartRow.row, shortcutRow, edgeHoverRow.row, edgeHoverDelayRow, autoHideRow.row)
 
     // 2. 界面与默认布局
     const secUI = el('div', { class: 'section-label' }, ['界面与默认布局'])
@@ -475,6 +516,43 @@ export class SettingsView {
 
     groupData.append(finderRow, exportRow, trashRow)
 
+    // 4. AI 与开发者生态 (Model Context Protocol)
+    const secMCP = el('div', { class: 'settings-sec' }, ['AI 与开发生态 (MCP)'])
+    const groupMCP = el('div', { class: 'settings-card' })
+
+    const copyMCPConfigBtn = el('button', {
+      type: 'button',
+      class: 'settings-btn settings-btn--accent',
+    }, ['复制配置']) as HTMLButtonElement
+
+    copyMCPConfigBtn.addEventListener('click', async () => {
+      const configSnippet = JSON.stringify({
+        mcpServers: {
+          ifolo: {
+            command: "/Applications/iFolo.app/Contents/MacOS/iFolo",
+            args: ["--mcp"]
+          }
+        }
+      }, null, 2)
+
+      try {
+        await navigator.clipboard.writeText(configSnippet)
+        copyMCPConfigBtn.textContent = '已复制配置 ✓'
+        setTimeout(() => { copyMCPConfigBtn.textContent = '复制配置' }, 1500)
+      } catch (err) {
+        console.error('Copy config error:', err)
+      }
+    })
+
+    const mcpRow = el('div', { class: 'settings-row' }, [
+      el('div', {}, [
+        el('div', {}, ['Model Context Protocol 本地服务']),
+        el('div', { class: 'settings-row__desc' }, ['允许 Claude Desktop / Cursor 外部大模型直连读写 iFolo 本地笔记']),
+      ]),
+      copyMCPConfigBtn,
+    ])
+
+    groupMCP.append(mcpRow)
     // 4. 关于信息
     const footer = el('div', {
       style: 'text-align: center; font-size: 11px; color: var(--muted); margin: 24px 0 12px; flex-shrink: 0; line-height: 1.7;',
@@ -499,6 +577,8 @@ export class SettingsView {
       groupAppearance,
       secData,
       groupData,
+      secMCP,
+      groupMCP,
       footer,
     )
   }
@@ -569,6 +649,16 @@ export class SettingsView {
     }
     if (this.edgeHoverToggle) {
       this.edgeHoverToggle.checked = localStorage.getItem('ifolo:edge_hover') !== 'false'
+    }
+    if (this.edgeHoverDelaySlider && this.edgeHoverDelayValEl) {
+      const curDelayMs = Math.round(getStoredEdgeHoverDelay() * 1000)
+      this.edgeHoverDelaySlider.value = String(curDelayMs)
+      this.edgeHoverDelayValEl.textContent = `${curDelayMs}ms`
+    }
+    if (this.edgeHoverDelayRow) {
+      const isEdgeEnabled = localStorage.getItem('ifolo:edge_hover') !== 'false'
+      this.edgeHoverDelayRow.style.opacity = isEdgeEnabled ? '1' : '0.45'
+      this.edgeHoverDelayRow.style.pointerEvents = isEdgeEnabled ? 'auto' : 'none'
     }
     if (this.autoHideToggle) {
       this.autoHideToggle.checked = localStorage.getItem('ifolo:auto_hide') === 'true'

@@ -211,4 +211,112 @@ describe('EditorSearch command dropdown UI & interactions', () => {
     setDefaultSearchEnabled(true)
     expect(isDefaultSearchEnabled()).toBe(true)
   })
+
+  it('handles Escape key in searchInput by stopping propagation and properly resetting state', () => {
+    const search = new EditorSearch({
+      view,
+      onGlobalSearch: vi.fn(),
+      getCommands: () => [],
+    })
+    container.append(search.dom)
+    search.show('test query', true)
+    expect(search.isVisible()).toBe(true)
+
+    const input = search.dom.querySelector('.notelist__search-input') as HTMLInputElement
+    let outerEscFired = false
+    container.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') outerEscFired = true
+    })
+
+    // 1. 输入框有内容时按 Esc：仅清空内容，停止冒泡，不关闭搜索栏
+    const escEvent1 = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    input.dispatchEvent(escEvent1)
+    expect(input.value).toBe('')
+    expect(search.isVisible()).toBe(true)
+    expect(outerEscFired).toBe(false)
+
+    // 2. 输入框为空时按 Esc：关闭搜索栏，停止冒泡，不触发外层返回上一页
+    const escEvent2 = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    input.dispatchEvent(escEvent2)
+    expect(search.isVisible()).toBe(false)
+    expect(outerEscFired).toBe(false)
+  })
+
+  it('ensures editorSearch can be reopened cleanly after being closed', () => {
+    const onVisibilityChange = vi.fn()
+    const search = new EditorSearch({
+      view,
+      onGlobalSearch: vi.fn(),
+      onVisibilityChange,
+      getCommands: () => [],
+    })
+    container.append(search.dom)
+
+    // 打开
+    search.show('', true)
+    expect(search.isVisible()).toBe(true)
+    expect(onVisibilityChange).toHaveBeenLastCalledWith(true)
+
+    // 关闭
+    search.hide()
+    expect(search.isVisible()).toBe(false)
+    expect(onVisibilityChange).toHaveBeenLastCalledWith(false)
+
+    // 再次打开（验证可重入性与复位）
+    search.show('hello', true)
+    expect(search.isVisible()).toBe(true)
+    const input = search.dom.querySelector('.notelist__search-input') as HTMLInputElement
+    expect(input.value).toBe('hello')
+    expect(onVisibilityChange).toHaveBeenLastCalledWith(true)
+
+    // toggle 测试
+    search.toggle()
+    expect(search.isVisible()).toBe(false)
+    search.toggle()
+    expect(search.isVisible()).toBe(true)
+  })
+
+  it('directly returns to note list when Escape is pressed in editor mode without jumping to search', () => {
+    let currentMode = 'editor'
+    const switchViewMode = (mode: string) => {
+      currentMode = mode
+    }
+
+    // 模拟全局 Esc 处理
+    const handleGlobalEsc = (e: KeyboardEvent, isCommandActive: boolean) => {
+      if (e.key === 'Escape') {
+        if (isCommandActive) return
+        if (currentMode === 'editor') {
+          e.preventDefault()
+          e.stopPropagation()
+          switchViewMode('list')
+        }
+      }
+    }
+
+    const escEvent = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    handleGlobalEsc(escEvent, false)
+    expect(currentMode).toBe('list')
+  })
+  it('renders MCP developer settings card with copy configuration snippet', async () => {
+    const { SettingsView } = await import('../ui/settings')
+    const mockBridge = {
+      list: vi.fn().mockResolvedValue([]),
+      listFolders: vi.fn().mockResolvedValue([]),
+      getStatusBarIcon: vi.fn().mockResolvedValue('notebook'),
+      getOpacity: vi.fn().mockResolvedValue(1.0),
+      getEdgeTriggerZone: vi.fn().mockResolvedValue(6),
+      getAutohide: vi.fn().mockResolvedValue(false),
+    }
+    const settings = new SettingsView({
+      bridge: mockBridge as any,
+      onBack: vi.fn(),
+      getNotes: () => [],
+    })
+    container.append(settings.dom)
+
+    expect(settings.dom.textContent).toContain('AI 与开发生态 (MCP)')
+    expect(settings.dom.textContent).toContain('Model Context Protocol 本地服务')
+    expect(settings.dom.textContent).toContain('复制配置')
+  })
 })

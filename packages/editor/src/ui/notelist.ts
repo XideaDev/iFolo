@@ -8,7 +8,7 @@
  *   - 卡片悬浮操作：删除、重命名
  */
 
-import { NoteMeta, SearchResult, FolderItem, Bridge, getStoredSearchState, setStoredSearchState, isDefaultFilterEnabled, isCardKindIconEnabled } from '../storage'
+import { NoteMeta, SearchResult, FolderItem, Bridge, getStoredSearchState, setStoredSearchState, isDefaultFilterEnabled, isCardKindIconEnabled, extractTags } from '../storage'
 import { cleanTitle, stripMarkdown, hasTodoContent } from '../markdown'
 import { el, ICONS } from './dom'
 
@@ -122,6 +122,7 @@ export class NoteList {
 
       if (e.key === 'Escape') {
         e.preventDefault()
+        e.stopPropagation()
         if (this.searchInput.value) {
           this.searchInput.value = ''
           this.searchQuery = ''
@@ -130,6 +131,7 @@ export class NoteList {
         } else {
           this.setSearchVisible(false)
         }
+        return
       }
     })
 
@@ -665,7 +667,8 @@ export class NoteList {
         items = items.filter((n) =>
           this.semanticResults.has(n.id) ||
           n.title.toLowerCase().includes(this.searchQuery) ||
-          (n.snippet && n.snippet.toLowerCase().includes(this.searchQuery)),
+          (n.snippet && n.snippet.toLowerCase().includes(this.searchQuery)) ||
+          (n.tags && n.tags.some((t) => t.toLowerCase().includes(this.searchQuery))),
         ).sort((a, b) => {
           const scoreA = this.semanticResults.get(a.id)?.score ?? 0
           const scoreB = this.semanticResults.get(b.id)?.score ?? 0
@@ -675,7 +678,8 @@ export class NoteList {
       } else {
         items = items.filter((n) =>
           n.title.toLowerCase().includes(this.searchQuery) ||
-          (n.snippet && n.snippet.toLowerCase().includes(this.searchQuery)),
+          (n.snippet && n.snippet.toLowerCase().includes(this.searchQuery)) ||
+          (n.tags && n.tags.some((t) => t.toLowerCase().includes(this.searchQuery))),
         )
       }
     }
@@ -846,12 +850,6 @@ export class NoteList {
   }
 }
 
-function extractTags(text: string): string[] {
-  const matches = text.match(/#[^\s#,]+/g)
-  if (!matches) return []
-  const unique = Array.from(new Set(matches.map((m) => m.slice(1).trim())))
-  return unique.filter((t) => t.length > 0 && t.length <= 16).slice(0, 4)
-}
 
 function getTagColorClass(tag: string): string {
   let hash = 0

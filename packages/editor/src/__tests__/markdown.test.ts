@@ -178,4 +178,14 @@ const x: number = 42
     expect(hasTodoContent('# 普通纯笔记\n\n这里只记录学习心得与技术总结，没有任何待办项目。')).toBe(false)
     expect(hasTodoContent('')).toBe(false)
   })
+
+  it('safely handles markdown tables and unsupported tokens without throwing errors', () => {
+    const tableMd = '# 表格测试\n\n| 标题 1 | 标题 2 |\n| :--- | :--- |\n| 内容 A | 内容 B |\n| 内容 C | 内容 D |\n\n表格下方正常段落。\n'
+    // 验证解析不抛出 "Token type table_open not supported by Markdown parser"
+    expect(() => {
+      const doc = parseMarkdown(tableMd)
+      expect(doc).toBeDefined()
+      expect(doc.childCount).toBeGreaterThan(0)
+    }).not.toThrow()
+  })
 })

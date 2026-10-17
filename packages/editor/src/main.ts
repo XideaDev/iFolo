@@ -36,6 +36,7 @@ import {
   isDefaultSearchEnabled,
   isDefaultNavEnabled,
   setStoredStatusBarIcon,
+  setStoredEdgeHoverDelay,
 } from './storage'
 import { slashPlugin, slashKey, SLASH_COMMANDS } from './slash'
 import { SlashMenu } from './ui/slashmenu'
@@ -308,7 +309,7 @@ function updateTopbar() {
     topbarTitle.style.display = 'none'
     topbarTitle.textContent = ''
     topbarCount.style.display = 'none'
-    const showSearchBtn = !isDefaultSearchEnabled()
+    const showSearchBtn = !isDefaultSearchEnabled() || (noteList ? !noteList.isSearchVisible() : false)
     if (searchBtnEl) {
       searchBtnEl.title = '搜索笔记 (⌘F)'
       searchBtnEl.style.display = showSearchBtn ? 'inline-flex' : 'none'
@@ -322,7 +323,7 @@ function updateTopbar() {
     topbarTitle.style.display = 'none'
     topbarTitle.textContent = ''
     topbarCount.style.display = 'none'
-    const showSearchBtn = !isDefaultSearchEnabled()
+    const showSearchBtn = !isDefaultSearchEnabled() || (editorSearch ? !editorSearch.isVisible() : false)
     if (searchBtnEl) {
       searchBtnEl.title = '在当前文档中查找 (⌘F)'
       searchBtnEl.style.display = showSearchBtn ? 'inline-flex' : 'none'
@@ -375,7 +376,7 @@ function switchViewMode(mode: ViewMode) {
     if (toolbar?.dom) toolbar.dom.style.display = 'flex'
     editorScrollEl.style.display = 'block'
     // 恢复编辑页搜索栏的记忆状态，但默认不给输入框焦点（不抢焦点）
-    const editorSearchOpen = getStoredSearchState('editor')
+    const editorSearchOpen = isDefaultSearchEnabled() || getStoredSearchState('editor')
     if (editorSearchOpen) {
       editorSearch?.show(undefined, false)
     } else {
@@ -987,6 +988,7 @@ async function boot() {
     onVisibilityChange: (visible) => {
       if (viewMode === 'editor') {
         searchBtnEl?.classList.toggle('ibtn--active', visible)
+        updateTopbar()
       }
     },
     getCommands: getAppCommands,
@@ -1014,6 +1016,9 @@ async function boot() {
   document.documentElement.style.setProperty('--card-opacity', String(cardOp))
   if (payload.statusBarIcon) {
     setStoredStatusBarIcon(payload.statusBarIcon)
+  }
+  if (payload.edgeHoverDelay !== undefined) {
+    setStoredEdgeHoverDelay(payload.edgeHoverDelay)
   }
 
   if (activeId) {
@@ -1060,6 +1065,7 @@ async function boot() {
     // ⌘F / Ctrl-F 唤起笔记搜索
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
       e.preventDefault()
+      e.stopPropagation()
       if (viewMode === 'list') {
         noteList.setSearchVisible(true, undefined, true)
       } else {
@@ -1071,39 +1077,41 @@ async function boot() {
     }
     // Esc: 优先收起命令面板；偏好设置返回；其次收起编辑器内搜索；再次收起列表搜索；再次编辑器模式返回列表；最后收起边缘面板
     if (e.key === 'Escape') {
+      // 1. 命令模式优先收起
       if (viewMode === 'list' && noteList.isCommandMode()) {
         e.preventDefault()
+        e.stopPropagation()
         noteList.closeCommandMode()
         return
       }
       if (viewMode === 'editor' && editorSearch.isCommandMode()) {
         e.preventDefault()
+        e.stopPropagation()
         editorSearch.closeCommandMode()
         view.focus()
         return
       }
+
+      // 2. 偏好设置模式返回上一页
       if (viewMode === 'settings') {
         e.preventDefault()
+        e.stopPropagation()
         switchViewMode(previousViewMode)
         return
       }
-      if (viewMode === 'editor') {
-        if (editorSearch.isVisible()) {
-          e.preventDefault()
-          editorSearch.hide()
-          view.focus()
-          return
-        }
-      }
+
+      // 4. 斜杠命令菜单未激活时，才允许返回上一页或收起面板
       if (!slashKey.getState(view.state)?.active) {
         if (viewMode === 'list') {
           if (noteList.isSearchVisible()) {
             e.preventDefault()
+            e.stopPropagation()
             noteList.setSearchVisible(false)
             return
           }
           if (activeId) {
             e.preventDefault()
+            e.stopPropagation()
             switchViewMode('editor')
             return
           }
@@ -1112,6 +1120,7 @@ async function boot() {
         }
         if (viewMode === 'editor') {
           e.preventDefault()
+          e.stopPropagation()
           switchViewMode('list')
           return
         }
@@ -1153,6 +1162,17 @@ async function boot() {
     document.documentElement.style.setProperty('--panel-width', `${value}px`)
   }
   w.__ifoloSettings = () => switchViewMode('settings')
+  w.__ifoloRefreshNotes = async () => {
+    try {
+      const payload = await bridge.boot()
+      notes = payload.notes
+      folders = payload.folders || []
+      noteList.update(notes, activeId, folders)
+      renderTabs()
+    } catch (e) {
+      console.warn('Refresh notes error:', e)
+    }
+  }
 
   if (viewMode === 'editor') {
     view.focus()

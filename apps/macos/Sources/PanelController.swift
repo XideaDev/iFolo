@@ -63,7 +63,7 @@ final class PanelController: NSObject, WKUIDelegate {
         panel.orderFrontRegardless()
         takeKey()
         installOutsideMonitor()
-        webView?.evaluateJavaScript("window.__ifoloFocus && window.__ifoloFocus()")
+        webView?.evaluateJavaScript("window.__ifoloRefreshNotes && window.__ifoloRefreshNotes(); window.__ifoloFocus && window.__ifoloFocus()")
         Log.write("面板显示 frame=\(panel.frame) visible=\(panel.isVisible) key=\(panel.isKeyWindow)")
     }
 

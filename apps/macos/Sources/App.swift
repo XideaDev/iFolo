@@ -12,6 +12,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotKeys: [HotKey] = []
 
     static func main() {
+        if CommandLine.arguments.contains("--mcp") {
+            // 启用无头 MCP 模式（通过 stdio 提供服务，无任何窗口与图标占用）
+            MCPServer.shared.startStdio()
+            RunLoop.main.run()
+            return
+        }
+
         let app = NSApplication.shared
         // NSApplication.delegate 是 weak，必须自己持有强引用
         let delegate = AppDelegate()
@@ -53,11 +60,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let trigger = EdgeTrigger.shared
         trigger.zoneWidth = 6
-        trigger.dwell = 0.12
+        let savedDelay = UserDefaults.standard.object(forKey: "ifolo.edgeHoverDelay") as? Double ?? 0.15
+        trigger.dwell = max(0.05, min(2.0, savedDelay))
         trigger.start()
         edgeTrigger = trigger
 
         registerHotKeys()
+
+        // 监听跨进程分布式通知（支持 MCP CLI、外部脚本触发的数据变动）通知前端实时刷新
+        DistributedNotificationCenter.default().addObserver(forName: NSNotification.Name("iFoloDataChangedExternally"), object: nil, queue: .main) { _ in
+            PanelController.shared.evaluate("window.__ifoloRefreshNotes && window.__ifoloRefreshNotes()")
+        }
 
         // 预热本地向量检索引擎
         SearchEngine.shared.warmup(notes: Store.shared.listNotes())

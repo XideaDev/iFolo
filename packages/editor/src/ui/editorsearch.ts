@@ -296,6 +296,7 @@ export class EditorSearch {
         }
         if (e.key === 'Escape') {
           e.preventDefault()
+          e.stopPropagation()
           this.hideCommands()
           this.searchInput.value = ''
           this.performSearch('')
@@ -336,6 +337,7 @@ export class EditorSearch {
 
       if (e.key === 'Escape') {
         e.preventDefault()
+        e.stopPropagation()
         this.hideCommands()
         if (this.searchInput.value) {
           this.searchInput.value = ''
@@ -348,7 +350,8 @@ export class EditorSearch {
       }
     })
 
-    this.clearBtn.addEventListener('click', () => {
+    this.clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
       this.hideCommands()
       if (this.searchInput.value) {
         this.searchInput.value = ''

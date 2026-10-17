@@ -42,6 +42,7 @@ final class MessageBridge: NSObject, WKScriptMessageHandler {
                     "title": $0.title,
                     "updatedAt": $0.updatedAt,
                     "snippet": $0.snippet,
+                    "tags": $0.tags ?? [],
                     "folderId": $0.folderId != nil ? ($0.folderId! as Any) : (NSNull() as Any),
                     "hasTodo": $0.hasTodo ?? false,
                     "isPinned": $0.isPinned ?? false,
@@ -58,6 +59,7 @@ final class MessageBridge: NSObject, WKScriptMessageHandler {
                 "panelOpacity": UserDefaults.standard.object(forKey: "ifolo.panelOpacity") as? Double ?? 0.82,
                 "cardOpacity": UserDefaults.standard.object(forKey: "ifolo.cardOpacity") as? Double ?? 0.90,
                 "statusBarIcon": UserDefaults.standard.string(forKey: "ifolo.statusBarIcon") ?? "notebook",
+                "edgeHoverDelay": UserDefaults.standard.object(forKey: "ifolo.edgeHoverDelay") as? Double ?? 0.15,
             ])
             // 恢复透明度配置（面板透明度与卡片透明度独立无级调控）
             let savedOpacity = UserDefaults.standard.object(forKey: "ifolo.panelOpacity") as? Double ?? 0.82
@@ -73,6 +75,7 @@ final class MessageBridge: NSObject, WKScriptMessageHandler {
                 "title": $0.title,
                 "updatedAt": $0.updatedAt,
                 "snippet": $0.snippet,
+                "tags": $0.tags ?? [],
                 "folderId": $0.folderId != nil ? ($0.folderId! as Any) : (NSNull() as Any),
                 "hasTodo": $0.hasTodo ?? false,
                 "isPinned": $0.isPinned ?? false,
@@ -226,6 +229,14 @@ final class MessageBridge: NSObject, WKScriptMessageHandler {
             if let enabled = params["enabled"] as? Bool {
                 UserDefaults.standard.set(enabled, forKey: "ifolo.edgeHover")
                 Log.write("设置边缘贴靠触发: \(enabled)")
+            }
+            reply(id, ok: true, payload: NSNull())
+        case "setEdgeHoverDelay":
+            if let delay = params["delay"] as? Double {
+                let clamped = max(0.05, min(2.0, delay))
+                UserDefaults.standard.set(clamped, forKey: "ifolo.edgeHoverDelay")
+                EdgeTrigger.shared.updateDwell(clamped)
+                Log.write("设置边缘悬停等待时长: \(clamped)s")
             }
             reply(id, ok: true, payload: NSNull())
 

@@ -17,8 +17,8 @@ final class EdgeTrigger {
     /// 触发区宽度（点）。3pt 是「能碰到但不误触」的平衡点。
     /// 触发区宽度（点）。6pt 确保高分辨率与高速划过时可靠捕获
     var zoneWidth: CGFloat = 6
-    /// 指针需要在触发区停留多久才展开面板
-    var dwell: TimeInterval = 0.12
+    /// 指针需要在触发区停留多久才展开面板（默认 0.15 秒，即 150ms）
+    var dwell: TimeInterval = 0.15
     /// 默认支持在光标所在的任何屏幕边缘触发
     var allScreens = true
 
@@ -57,14 +57,20 @@ final class EdgeTrigger {
             self?.evaluate()
         }
 
+        // 从 UserDefaults 读取用户配置的悬停等待时长（默认 0.15s，范围 0.05s ~ 2.0s）
+        let savedDelay = UserDefaults.standard.object(forKey: "ifolo.edgeHoverDelay") as? Double ?? 0.15
+        self.dwell = max(0.05, min(2.0, savedDelay))
+
         // 2. 毫秒级轻量悬停轮询：解决无辅助功能权限或鼠标静止停留时无法收到 mouseMoved 事件的系统级死锁
-        let pTimer = Timer(timeInterval: 0.15, repeats: true) { [weak self] _ in
+        // 轮询周期自适应采样（确保在短延迟如 50ms 时也能灵敏响应）
+        let pollInterval = min(0.1, max(0.04, self.dwell / 2.0))
+        let pTimer = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.evaluate()
         }
         RunLoop.main.add(pTimer, forMode: .common)
         pollTimer = pTimer
 
-        Log.write("边缘触发已启动 zoneWidth=\(zoneWidth) dwell=\(dwell) minZoneX=\(minZoneX)")
+        Log.write("边缘触发已启动 zoneWidth=\(zoneWidth) dwell=\(dwell)s minZoneX=\(minZoneX)")
     }
 
     func stop() {
@@ -89,6 +95,23 @@ final class EdgeTrigger {
     func resume() {
         isPaused = false
         armed = true
+    }
+
+    /// 动态更新鼠标悬停等待时长并即时生效
+    func updateDwell(_ newDwell: TimeInterval) {
+        let clamped = max(0.05, min(2.0, newDwell))
+        self.dwell = clamped
+        cancelDwell()
+        if pollTimer != nil {
+            pollTimer?.invalidate()
+            let pollInterval = min(0.1, max(0.04, clamped / 2.0))
+            let pTimer = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
+                self?.evaluate()
+            }
+            RunLoop.main.add(pTimer, forMode: .common)
+            self.pollTimer = pTimer
+        }
+        Log.write("边缘悬停触发等待时长已更新为: \(clamped)s (\(Int(round(clamped * 1000)))ms)")
     }
 
     private func updateScreenCache() {

@@ -47,3 +47,7 @@ packages/editor/dist-debug/
 .workbuddy-ai/
 .pi/
 output/
+
+# 包含本地个人数据的迁移与格式化脚本（防止私有凭据泄漏）
+scripts/format-*.py
+scripts/migrate-from-slidejot.py

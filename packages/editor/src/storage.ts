@@ -33,6 +33,7 @@ export interface BootPayload {
   panelWidth?: number
   panelOpacity?: number
   statusBarIcon?: string
+  edgeHoverDelay?: number
 }
 
 export interface SearchResult {
@@ -74,6 +75,7 @@ export interface Bridge {
   setNotePinned(noteId: string, pinned: boolean): Promise<void>
   setEdgeHover(enabled: boolean): Promise<void>
   setAutoHide(enabled: boolean): Promise<void>
+  setEdgeHoverDelay(delaySeconds: number): Promise<void>
   readonly isNative: boolean
 }
 
@@ -148,6 +150,7 @@ function createNativeBridge(): Bridge | null {
     setNotePinned: (noteId, pinned) => call<void>('setNotePinned', { noteId, pinned }),
     setEdgeHover: (enabled) => call<void>('setEdgeHover', { enabled }),
     setAutoHide: (enabled) => call<void>('setAutoHide', { enabled }),
+    setEdgeHoverDelay: (delay) => call<void>('setEdgeHoverDelay', { delay }),
   }
 }
 
@@ -185,11 +188,37 @@ function snippetOf(markdown: string): string {
   return cleaned.length > 60 ? cleaned.slice(0, 60) + '…' : cleaned
 }
 
+/** 检测笔记内容是否与 MCP 语义相关（大小写不敏感） */
+export function isMcpRelated(text: string): boolean {
+  if (!text) return false
+  return /(?:^|[^a-zA-Z0-9])mcp(?:[^a-zA-Z0-9]|$)|mcpserver|model\s+context\s+protocol/i.test(text)
+}
+
+/**
+ * 从 Markdown 文本中提取标签：
+ * 1. 优先提取 #标签#（双井号）或 #标签（单井号前缀，排除 Markdown 标题如 # 标题 与 C# 等）；
+ * 2. 自动打标：若笔记内容与 MCP 相关，自动添加 "mcp" 标签。
+ */
 export function extractTags(text: string): string[] {
-  const matches = text.match(/#[^\s#,]+/g)
-  if (!matches) return []
-  const unique = Array.from(new Set(matches.map((m) => m.slice(1).trim())))
-  return unique.filter((t) => t.length > 0 && t.length <= 16).slice(0, 4)
+  if (!text) return []
+  const pattern = /#([^#\s,]{1,16})#|#([^#\s,]{1,16})(?=[\s，。！？、（）()[\]{}'"]|$)/g
+  const matches = text.match(pattern)
+  const tags: string[] = []
+  if (matches) {
+    for (const m of matches) {
+      const cleaned = m.replace(/^#+|#+$/g, '').trim()
+      if (cleaned.length > 0 && cleaned.length <= 16) {
+        tags.push(cleaned)
+      }
+    }
+  }
+  if (isMcpRelated(text)) {
+    if (!tags.some((t) => t.toLowerCase() === 'mcp')) {
+      tags.push('mcp')
+    }
+  }
+  const unique = Array.from(new Set(tags))
+  return unique.slice(0, 6)
 }
 
 function createBrowserBridge(): Bridge {
@@ -446,6 +475,9 @@ function createBrowserBridge(): Bridge {
     async setAutoHide(enabled) {
       localStorage.setItem('ifolo:auto_hide', String(enabled))
     },
+    async setEdgeHoverDelay(delay) {
+      setStoredEdgeHoverDelay(delay)
+    },
   }
 }
 
@@ -457,6 +489,27 @@ export function createBridge(): Bridge {
 export const LS_DEFAULT_SEARCH = 'ifolo:default_search'
 export const LS_DEFAULT_FILTER = 'ifolo:default_filter'
 export const LS_DEFAULT_NAV = 'ifolo:default_nav'
+export const LS_EDGE_HOVER_DELAY = 'ifolo:edge_hover_delay'
+export const DEFAULT_EDGE_HOVER_DELAY = 0.15 // 默认 150ms
+
+export function getStoredEdgeHoverDelay(): number {
+  try {
+    const val = parseFloat(localStorage.getItem(LS_EDGE_HOVER_DELAY) || '')
+    if (isNaN(val) || val < 0.05 || val > 2.0) {
+      return DEFAULT_EDGE_HOVER_DELAY
+    }
+    return val
+  } catch {
+    return DEFAULT_EDGE_HOVER_DELAY
+  }
+}
+
+export function setStoredEdgeHoverDelay(delaySeconds: number): void {
+  try {
+    const clamped = Math.max(0.05, Math.min(2.0, delaySeconds))
+    localStorage.setItem(LS_EDGE_HOVER_DELAY, String(clamped))
+  } catch {}
+}
 
 export function isDefaultSearchEnabled(): boolean {
   try {
