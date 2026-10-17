@@ -420,14 +420,16 @@ final class Store {
     static func extractTags(from text: String) -> [String] {
         if text.isEmpty { return [] }
         var tags: [String] = []
-        let pattern = "#([^#\\s,]{1,16})#|#([^#\\s,]{1,16})(?=[\\s，。！？、（）()\\[\\]{}'\"]|$)"
+        let pattern = "#([^#\\s,`]{1,16})#|#([^#\\s,`]{1,16})(?=[\\s，。！？、（）()\\[\\]{}'\"`]|$)"
         if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
             let nsText = text as NSString
             let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
             for m in matches {
                 let matchedStr = nsText.substring(with: m.range)
-                let cleaned = matchedStr.trimmingCharacters(in: CharacterSet(charactersIn: "# \t\r\n"))
-                if !cleaned.isEmpty && cleaned.count <= 16 {
+                let cleaned = matchedStr.trimmingCharacters(in: CharacterSet(charactersIn: "# \t\r\n`"))
+                let isHexColor = cleaned.range(of: "^([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$", options: .regularExpression) != nil
+                let isPureNumber = cleaned.range(of: "^\\d+$", options: .regularExpression) != nil
+                if !cleaned.isEmpty && cleaned.count <= 16 && !isHexColor && !isPureNumber {
                     tags.append(cleaned)
                 }
             }

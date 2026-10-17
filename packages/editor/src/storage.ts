@@ -201,13 +201,15 @@ export function isMcpRelated(text: string): boolean {
  */
 export function extractTags(text: string): string[] {
   if (!text) return []
-  const pattern = /#([^#\s,]{1,16})#|#([^#\s,]{1,16})(?=[\s，。！？、（）()[\]{}'"]|$)/g
+  const pattern = /#([^#\s,`]{1,16})#|#([^#\s,`]{1,16})(?=[\s，。！？、（）()[\]{}'"`]|$)/g
   const matches = text.match(pattern)
   const tags: string[] = []
   if (matches) {
     for (const m of matches) {
       const cleaned = m.replace(/^#+|#+$/g, '').trim()
-      if (cleaned.length > 0 && cleaned.length <= 16) {
+      const isHexColor = /^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$|^[0-9a-fA-F]{8}$/.test(cleaned)
+      const isPureNumber = /^\d+$/.test(cleaned)
+      if (cleaned.length > 0 && cleaned.length <= 16 && !isHexColor && !isPureNumber) {
         tags.push(cleaned)
       }
     }
